@@ -1,0 +1,17 @@
+# Python 缓存
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# 虚拟环境
+.venv/
+
+# 密钥：.env 只放在自己电脑上
+.env
+
+# 原始 CSV 太大（约 47 MB），用 scripts/build_olist.py 下载；仓库只提交处理好的 parquet
+data/raw/
+
+# 系统文件
+.DS_Store
+Thumbs.db
