@@ -2,6 +2,7 @@ name: tests
 
 on:
   push:
+    branches: [main]  # PR 分支的推送由 pull_request 触发，避免同一提交跑两遍
   pull_request:
 
 jobs:
