@@ -73,6 +73,7 @@ class AgentResult:
     completion_tokens: int = 0
     seconds: float = 0.0
     error: str | None = None
+    served_model: str | None = None  # 服务器实际返回的模型名（别名会随时间指向新版本，评测时要记下来）
 
     @property
     def ok(self) -> bool:
@@ -157,6 +158,7 @@ class Agent:
             result.model_calls += 1
             result.prompt_tokens += reply.prompt_tokens
             result.completion_tokens += reply.completion_tokens
+            result.served_model = reply.model or result.served_model
 
             if reply.tool_calls:
                 messages.append(reply.assistant_message())
