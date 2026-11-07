@@ -14,11 +14,15 @@ from askdata.charts import choose_chart, make_figure
 from askdata.config import DEFAULT_MODEL, MODELS
 from askdata.db import Database, clean_table_name
 from askdata.llm import MissingAPIKey, make_model
+from askdata.quota import DailyQuota
 
 load_dotenv(Path(__file__).with_name(".env"))  # 读取和 app.py 同一个文件夹里的 .env
 st.set_page_config(page_title="智能问数助手", page_icon="📊", layout="wide")
 
-MAX_QUESTIONS = int(os.getenv("ASKDATA_MAX_QUESTIONS", "0"))  # 公开 Demo 里每人最多问几次，0 表示不限
+# 公开 Demo 的设置，都在部署平台的环境变量里填，本地运行不用管
+MAX_QUESTIONS = int(os.getenv("ASKDATA_MAX_QUESTIONS") or 0)  # 每个访客最多问几次，0 表示不限
+DAILY_LIMIT = int(os.getenv("ASKDATA_DAILY_LIMIT") or 0)  # 全站每天最多回答几次，0 表示不限
+ONLY_MODELS = [k.strip() for k in os.getenv("ASKDATA_MODELS", "").split(",") if k.strip()]  # 只开放这些模型
 EXAMPLES = [
     "2017 年每个月的订单量是多少？",
     "销售额最高的 10 个商品类目是哪些？",
@@ -32,6 +36,18 @@ EXAMPLES = [
 @st.cache_resource(show_spinner="正在加载数据…")
 def olist_db() -> Database:
     return Database.olist()
+
+
+@st.cache_resource
+def daily_quota() -> DailyQuota:
+    return DailyQuota(DAILY_LIMIT)  # cache_resource：所有访客共用同一个计数器
+
+
+def usable_models() -> list[str]:
+    """界面上能选的模型：配置了 key 的那些；一个 key 都没有时全部列出，并提示去填。"""
+    keys = [k for k in MODELS if not ONLY_MODELS or k in ONLY_MODELS]
+    ready = [k for k in keys if os.getenv(MODELS[k].api_key_env)]
+    return ready or keys
 
 
 def read_upload(file) -> Database:
@@ -101,6 +117,8 @@ def show_result(result: AgentResult, key: str) -> None:
             st.dataframe(result.data, hide_index=True, width="stretch", column_config=numbers)
             if result.truncated:
                 st.caption("结果超过 1000 行，只显示前 1000 行。")
+            st.download_button("下载 CSV", result.data.to_csv(index=False).encode("utf-8-sig"),  # 带 BOM，Excel 打开中文不乱码
+                               file_name="查询结果.csv", mime="text/csv", key=f"csv_{key}")
         else:
             st.caption("没有结果。")
     with tabs[1]:
@@ -122,14 +140,15 @@ def show_result(result: AgentResult, key: str) -> None:
 st.session_state.setdefault("history", [])  # [(数据集名, AgentResult)]
 with st.sidebar:
     st.header("设置")
-    model_key = st.selectbox("模型", list(MODELS), index=list(MODELS).index(DEFAULT_MODEL),
+    choices = usable_models()
+    model_key = st.selectbox("模型", choices, index=choices.index(DEFAULT_MODEL) if DEFAULT_MODEL in choices else 0,
                              format_func=lambda k: MODELS[k].label)
     if not os.getenv(MODELS[model_key].api_key_env):
-        st.warning(f"还没有配置 {MODELS[model_key].api_key_env}，提问前请先在 .env 里填写。")
+        st.warning(f"还没有配置 {MODELS[model_key].api_key_env}，提问前请先在 .env 文件（部署时是平台的环境变量）里填写。")
     st.radio("数据", ["olist", "upload"], key="source", horizontal=True,
              format_func=lambda s: "内置电商数据" if s == "olist" else "上传文件")
     if st.session_state.source == "upload":
-        file = st.file_uploader("上传 CSV 或 Excel", type=["csv", "xlsx"], max_upload_size=20)
+        file = st.file_uploader("上传 CSV 或 Excel（20 MB 以内）", type=["csv", "xlsx"])
         if file is not None and st.session_state.get("upload_name") != (file.name, file.size):
             try:
                 st.session_state.upload_db = read_upload(file)
@@ -166,6 +185,13 @@ for i, (_, past) in enumerate(history):
         st.markdown(past.question)
     with st.chat_message("assistant"):
         show_result(past, key=str(i))
+        if i == len(history) - 1 and past.followups:  # 只给最新一轮显示追问按钮
+            st.caption("可以接着问：")
+            cols = st.columns(len(past.followups))
+            for j, (col, follow) in enumerate(zip(cols, past.followups)):
+                if col.button(follow, key=f"follow_{i}_{j}", icon=":material/subdirectory_arrow_right:",
+                              width="stretch"):
+                    st.session_state.pending = follow
 
 question = st.chat_input("问点什么，比如：2018 年哪个类目的差评率最高？")
 question = question or st.session_state.pop("pending", None)
@@ -173,7 +199,8 @@ if question:
     with st.chat_message("user"):
         st.markdown(question)
     with st.chat_message("assistant"):
-        if MAX_QUESTIONS and len(history) >= MAX_QUESTIONS:
+        asked = st.session_state.get("asked", 0)  # 单独计数：点“清空对话”不会重置
+        if MAX_QUESTIONS and asked >= MAX_QUESTIONS:
             st.warning(f"这个公开演示每人最多问 {MAX_QUESTIONS} 个问题。想继续体验可以在本地运行，见 GitHub 说明。")
             st.stop()
         try:
@@ -181,6 +208,10 @@ if question:
         except MissingAPIKey as e:
             st.error(str(e))
             st.stop()
+        if not daily_quota().take():
+            st.warning("今天的演示额度已经用完了，明天再来试试，或者在本地运行，见 GitHub 说明。")
+            st.stop()
+        st.session_state.asked = asked + 1
         with st.status("正在分析…", expanded=True) as status:
             log = st.empty()
             lines: list[str] = []

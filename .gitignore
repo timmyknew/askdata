@@ -15,6 +15,3 @@ data/raw/
 # 系统文件
 .DS_Store
 Thumbs.db
-
-# 评测结果：本地跑出来的结果目录（选一份好的手动提交到 results/ 下即可）
-results/*/records.jsonl.bak

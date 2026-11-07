@@ -42,12 +42,14 @@ SYSTEM_PROMPT = """你是一名资深数据分析师，帮业务同学用 SQL �
    排行类问题按指标排序，默认取前 10，除非用户要更多；按月统计时输出 'YYYY-MM' 格式的月份列。
 3. 执行报错或结果为空时，根据反馈信息修正后再执行。
 4. 拿到正确结果后，用中文写 1 到 3 句结论，带上关键数字，只用结果里出现的数字，不要编造。
+   结论之后另起一行，以“可以接着问：”开头，给出 2 个顺着结论往下挖的简短问题，用“｜”隔开。
 5. 如果问题和这份数据无关，或者数据里没有需要的信息，直接说明，不要硬写 SQL。"""
 
 HOW_TOOLS = "调用 run_sql 执行"
 HOW_TEXT = "把 SQL 写在 ```sql 代码块里，我会替你执行并把结果发给你"
 
 PREVIEW_ROWS = 20
+FOLLOWUP_LINE = re.compile(r"^[ \t>*_#]*(?:可以接着问|你还可以问|还可以问|追问)[*_]*[ \t]*[:：]", re.MULTILINE)
 
 
 @dataclass
@@ -74,6 +76,7 @@ class AgentResult:
     seconds: float = 0.0
     error: str | None = None
     served_model: str | None = None  # 服务器实际返回的模型名（别名会随时间指向新版本，评测时要记下来）
+    followups: list[str] = field(default_factory=list)  # 模型建议的追问，界面上做成按钮
 
     @property
     def ok(self) -> bool:
@@ -89,6 +92,19 @@ def extract_sql(text: str) -> str | None:
     """从模型的文字回复里找 ```sql 代码块（不用工具调用时的写法）。"""
     blocks = re.findall(r"```(?:sql|duckdb)\s*(.*?)```", text or "", flags=re.DOTALL | re.IGNORECASE)
     return blocks[-1].strip() if blocks else None
+
+
+def split_followups(text: str) -> tuple[str, list[str]]:
+    """把结论末尾的“可以接着问：A｜B”拆出来。模型没按格式写时，原样返回、没有追问。"""
+    match = FOLLOWUP_LINE.search(text or "")
+    if not match:
+        return text, []
+    questions = []
+    for part in re.split(r"[｜|\n]", text[match.end():]):
+        part = re.sub(r"^\s*(?:[-*•]|\d+[.、)）])\s*", "", part).strip(" *_\t")
+        if 2 <= len(part) <= 60:
+            questions.append(part)
+    return text[:match.start()].rstrip(), questions[:3]
 
 
 def preview(data: pd.DataFrame, rows: int = PREVIEW_ROWS) -> str:
@@ -182,7 +198,8 @@ class Agent:
                     failures += not ok
                     messages.append({"role": "user", "content": feedback})
                 else:  # 没有新 SQL：这就是最终结论
-                    result.answer = re.sub(r"```(?:sql|duckdb).*?```", "", text, flags=re.DOTALL).strip()
+                    answer = re.sub(r"```(?:sql|duckdb).*?```", "", text, flags=re.DOTALL).strip()
+                    result.answer, result.followups = split_followups(answer)
                     return
             if failures >= self.max_failures:
                 return

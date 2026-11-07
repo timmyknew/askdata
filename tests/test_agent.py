@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from askdata.agent import RUN_SQL_TOOL, Agent, extract_sql
+from askdata.agent import RUN_SQL_TOOL, Agent, extract_sql, split_followups
 from askdata.db import Database
 from tests.fakes import ScriptedModel, sql_call, text
 
@@ -107,3 +107,26 @@ def test_system_prompt_contains_schema(db):
 def test_extract_sql_takes_last_block():
     assert extract_sql("```sql\nselect 1\n```\n然后\n```SQL\nselect 2\n```") == "select 2"
     assert extract_sql("没有代码") is None
+
+
+def test_follow_up_suggestions_are_split_from_the_answer(db):
+    model = ScriptedModel([
+        sql_call("select category, sum(amount) from orders group by 1"),
+        text("图书销售额最高，为 60 元。\n可以接着问：图书每个月卖多少？｜玩具为什么卖得少？"),
+    ])
+    result = Agent(model, db).ask("哪个类目卖得最好？")
+    assert result.answer == "图书销售额最高，为 60 元。"
+    assert result.followups == ["图书每个月卖多少？", "玩具为什么卖得少？"]
+
+
+@pytest.mark.parametrize("reply", [
+    "结论。\n\n**可以接着问：** A 问题？| B 问题？",
+    "结论。\n可以接着问:\n1. A 问题？\n2. B 问题？",
+    "结论。\n你还可以问：\n- A 问题？\n- B 问题？",
+])
+def test_split_followups_handles_common_formats(reply):
+    assert split_followups(reply) == ("结论。", ["A 问题？", "B 问题？"])
+
+
+def test_answer_without_follow_ups_is_unchanged():
+    assert split_followups("这份数据里没有年龄信息。") == ("这份数据里没有年龄信息。", [])
