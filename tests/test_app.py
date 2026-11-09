@@ -6,6 +6,7 @@ import pytest
 import streamlit as st
 from streamlit.testing.v1 import AppTest
 
+import askdata.config
 import askdata.llm
 from askdata.llm import ChatReply, ToolCall
 
@@ -31,6 +32,7 @@ def app(monkeypatch):
     for name in ("ZHIPUAI_API_KEY", "ASKDATA_MAX_QUESTIONS", "ASKDATA_DAILY_LIMIT", "ASKDATA_MODELS"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr(askdata.llm, "make_model", lambda key, api_key=None: FakeModel())
+    monkeypatch.setattr(askdata.config, "load_env", lambda path: None)  # 不读本机的 .env，测试结果不受自己填的 key 影响
     st.cache_resource.clear()  # 每个测试用新的每日计数器
     yield AppTest.from_file(APP, default_timeout=60)
     st.cache_resource.clear()
