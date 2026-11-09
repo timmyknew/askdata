@@ -83,7 +83,9 @@ QUESTIONS: list[dict] = [
     dict(id="t02", difficulty="medium", topic="趋势", question="每一年分别有多少个订单？",
          gold="SELECT year(purchase_time) AS y, count(*) FROM orders GROUP BY y"),
     dict(id="t03", difficulty="medium", topic="趋势", question="2018 年每个季度（1 到 4 季度）的订单量是多少？",
-         gold="SELECT quarter(purchase_time) AS q, count(*) FROM orders WHERE year(purchase_time) = 2018 GROUP BY q"),
+         gold="SELECT quarter(purchase_time) AS q, count(*) FROM orders WHERE year(purchase_time) = 2018 GROUP BY q",
+         alt=["SELECT date_trunc('quarter', purchase_time) AS q, count(*) FROM orders "  # 季度写成季度第一天
+              "WHERE year(purchase_time) = 2018 GROUP BY q"]),
     dict(id="t04", difficulty="medium", topic="趋势", question="订单量最多的是哪个月份？",
          gold="SELECT strftime(purchase_time, '%Y-%m') AS m FROM orders GROUP BY m ORDER BY count(*) DESC LIMIT 1"),
     dict(id="t05", difficulty="medium", topic="趋势", question="一天里哪个小时下单的人最多？",

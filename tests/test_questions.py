@@ -82,6 +82,8 @@ def test_wrong_answers_are_caught(golds):
             "GROUP BY 1 ORDER BY 2 DESC LIMIT 10"),
     ("t03", "SELECT '2018-Q' || quarter(purchase_time) AS 季度, count(*) AS 订单量 FROM orders "
             "WHERE year(purchase_time) = 2018 GROUP BY 1 ORDER BY 1"),
+    ("t03", "SELECT date_trunc('quarter', purchase_time) AS 季度, COUNT(DISTINCT order_id) AS 订单量 FROM orders "
+            "WHERE purchase_time >= '2018-01-01' AND purchase_time < '2019-01-01' GROUP BY 1 ORDER BY 1"),  # GLM 的写法
     ("d07", "SELECT round(avg(date_diff('day', estimated_delivery_date, CAST(delivered_time AS DATE))), 2) AS 平均提前天数 "
             "FROM orders WHERE delivered_time IS NOT NULL"),  # 负数表示提前
     ("j23", "SELECT count(*) AS 件数 FROM order_items i JOIN orders o USING (order_id) JOIN products p USING (product_id) "

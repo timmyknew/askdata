@@ -1,6 +1,7 @@
 """问数 Agent：模型写 SQL → 执行 → 出错或结果为空就把信息反馈给模型修正 → 拿到结果后写结论。"""
 from __future__ import annotations
 
+import json
 import re
 import time
 from dataclasses import dataclass, field
@@ -40,7 +41,7 @@ SYSTEM_PROMPT = """你是一名资深数据分析师，帮业务同学用 SQL �
 1. 想清楚要用哪些表和字段，然后{how_to_run}。每次只写一条只读查询（SELECT 或 WITH）。
 2. 结果是给人看的：列名用中文别名（如 AS "类目"），金额保留 2 位小数，比例用百分数并保留 1 位小数；
    排行类问题按指标排序，默认取前 10，除非用户要更多；按月统计时输出 'YYYY-MM' 格式的月份列。
-   只输出回答问题需要的列，不要加和问题无关的列。
+   只输出回答问题需要的列，不要加和问题无关的列。别名用双引号，不要用单引号。
 3. 问题要的是一个算出来的值（差值、增长率、倍数、占比）时，在 SQL 里直接算出来，单独放一列，可以同时保留中间数方便对照；
    问“哪个最高、最多、下降最多”时，按这个指标排序，让答案排在第一行。不要只查中间数再自己心算。
 4. 执行报错或结果为空时，根据反馈信息修正后再执行。
@@ -49,6 +50,7 @@ SYSTEM_PROMPT = """你是一名资深数据分析师，帮业务同学用 SQL �
 6. 如果问题和这份数据无关，或者数据里没有需要的信息，直接说明，不要硬写 SQL。"""
 
 HOW_TOOLS = "调用 run_sql 执行"
+NUDGE = "请调用 run_sql 工具执行查询；如果数据里没有需要的信息，就直接说明。"
 HOW_TEXT = "把 SQL 写在 ```sql 代码块里，我会替你执行并把结果发给你"
 
 PREVIEW_ROWS = 20
@@ -92,9 +94,61 @@ class AgentResult:
 
 
 def extract_sql(text: str) -> str | None:
-    """从模型的文字回复里找 ```sql 代码块（不用工具调用时的写法）。"""
+    """从模型的文字回复里找 SQL：```sql 代码块（不用工具调用时的写法），
+    或者把工具调用直接写成了文字，比如 run_sql WITH …、run_sql(三引号包起来的 SELECT …)、{"sql": "…"}。"""
     blocks = re.findall(r"```(?:sql|duckdb)\s*(.*?)```", text or "", flags=re.DOTALL | re.IGNORECASE)
-    return blocks[-1].strip() if blocks else None
+    if blocks:
+        return blocks[-1].strip()
+    return _sql_written_as_text(text or "")
+
+
+_QUOTES = ('"""', "'''", '"', "'", "`")
+
+
+def _sql_written_as_text(text: str) -> str | None:
+    """有的模型（比如 GLM-4-Flash）提示词一长，就不走工具调用，而是把调用写成文字。只认以 run_sql、
+    SELECT 或 WITH 开头的回复，普通的中文结论不会被当成 SQL。"""
+    t = text.strip()
+    named = re.match(r"run_sql\b[ \t]*[:：]?\s*", t, flags=re.IGNORECASE)
+    if named:
+        t = t[named.end():]
+        if t.startswith("(") and t.endswith(")"):
+            t = t[1:-1].strip()
+    if t.startswith("{"):
+        try:
+            t = str(json.loads(t).get("sql", ""))
+        except (ValueError, AttributeError):
+            return None
+    for q in _QUOTES:
+        if t.startswith(q):
+            t = t[len(q):]
+            t = t[: -len(q)] if t.rstrip().endswith(q) else t
+            break
+    t = t.strip().rstrip(";").strip()
+    if re.match(r"(?:WITH|SELECT)\b", t, flags=re.IGNORECASE):
+        return t
+    return None
+
+
+def drop_unmatched_parens(sql: str) -> str:
+    """去掉末尾多出来的右括号。模型偶尔把 run_sql(...) 的括号带进 SQL，执行会报语法错误。"""
+    def balance(text: str) -> int:
+        depth, quote = 0, None
+        for ch in text:
+            if quote:
+                quote = None if ch == quote else quote
+            elif ch in "'\"":
+                quote = ch
+            elif ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+        return depth
+
+    sql = sql.strip()
+    while sql.endswith(")") and balance(sql) < 0:
+        sql = sql[:-1].rstrip()
+    return sql
 
 
 def split_followups(text: str) -> tuple[str, list[str]]:
@@ -171,7 +225,7 @@ class Agent:
         return result
 
     def _loop(self, messages: list[dict], result: AgentResult) -> None:
-        failures = 0
+        failures, nudged = 0, False
         while result.model_calls < self.max_model_calls:
             reply = self.model.chat(messages, tools=[RUN_SQL_TOOL] if self.use_tools else None)
             result.model_calls += 1
@@ -200,6 +254,9 @@ class Agent:
                     feedback, ok = self._execute(sql, result)
                     failures += not ok
                     messages.append({"role": "user", "content": feedback})
+                elif not text and not result.attempts and not nudged:  # 空回复：提醒一次
+                    nudged = True
+                    messages.append({"role": "user", "content": NUDGE})
                 else:  # 没有新 SQL：这就是最终结论
                     answer = re.sub(r"```(?:sql|duckdb).*?```", "", text, flags=re.DOTALL).strip()
                     result.answer, result.followups = split_followups(answer)
@@ -209,10 +266,13 @@ class Agent:
 
     def _execute(self, sql: str, result: AgentResult) -> tuple[str, bool]:
         """执行一条 SQL，记下来，返回反馈给模型的话。"""
+        sql = drop_unmatched_parens(sql)
+        tried = {" ".join(a.sql.split()) for a in result.attempts if not a.ok}
         res: QueryResult = self.db.run(sql)
         if not res.ok:
             self._record(result, Attempt(res.sql, False, error=res.error, seconds=res.seconds))
-            return f"执行出错：{res.error}\n请根据报错修正 SQL 后再执行。", False
+            repeat = "这条 SQL 和之前失败的一模一样，请换一种写法。" if " ".join(sql.split()) in tried else ""
+            return f"执行出错：{res.error}\n{repeat}请根据报错修正 SQL 后再执行，不要重复之前失败的写法。", False
 
         data = res.data
         self._record(result, Attempt(res.sql, True, rows=len(data), seconds=res.seconds))
