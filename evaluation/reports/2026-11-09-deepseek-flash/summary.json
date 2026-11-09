@@ -1,0 +1,139 @@
+{
+  "generated_at": "2026-11-09T22:18:17",
+  "questions": 115,
+  "models": [
+    "deepseek-flash"
+  ],
+  "configs": [
+    "baseline",
+    "schema",
+    "full"
+  ],
+  "config_labels": {
+    "baseline": "只给表名和列名，不纠错",
+    "schema": "加上中文字段说明和业务口径",
+    "full": "再加报错自动修正（线上配置）"
+  },
+  "overall": [
+    {
+      "model": "deepseek-flash",
+      "config": "baseline",
+      "label": "只给表名和列名，不纠错",
+      "correct": 98,
+      "n": 113,
+      "accuracy": 0.8672566371681416,
+      "ci": [
+        0.7924849538417376,
+        0.9178784783604919
+      ],
+      "executed": 1.0,
+      "self_corrected": 0,
+      "sql_failed": 0,
+      "avg_calls": 2.0442477876106193,
+      "avg_tokens": 2400.212389380531,
+      "avg_seconds": 2.6237168141592924
+    },
+    {
+      "model": "deepseek-flash",
+      "config": "schema",
+      "label": "加上中文字段说明和业务口径",
+      "correct": 110,
+      "n": 113,
+      "accuracy": 0.9734513274336283,
+      "ci": [
+        0.9248390354028831,
+        0.9909306904481835
+      ],
+      "executed": 1.0,
+      "self_corrected": 0,
+      "sql_failed": 0,
+      "avg_calls": 2.0,
+      "avg_tokens": 6520.41592920354,
+      "avg_seconds": 2.7627433628318583
+    },
+    {
+      "model": "deepseek-flash",
+      "config": "full",
+      "label": "再加报错自动修正（线上配置）",
+      "correct": 111,
+      "n": 113,
+      "accuracy": 0.9823008849557522,
+      "ci": [
+        0.9377540468123469,
+        0.9951328701761231
+      ],
+      "executed": 1.0,
+      "self_corrected": 0,
+      "sql_failed": 0,
+      "avg_calls": 2.0088495575221237,
+      "avg_tokens": 6559.3893805309735,
+      "avg_seconds": 2.7139823008849557
+    }
+  ],
+  "ablation": [
+    {
+      "model": "deepseek-flash",
+      "from": "baseline",
+      "to": "schema",
+      "n": 113,
+      "delta": 0.10619469026548672,
+      "gained": 14,
+      "lost": 2,
+      "p": 0.004180908203125
+    },
+    {
+      "model": "deepseek-flash",
+      "from": "schema",
+      "to": "full",
+      "n": 113,
+      "delta": 0.008849557522123894,
+      "gained": 1,
+      "lost": 0,
+      "p": 1.0
+    }
+  ],
+  "by_difficulty": [
+    {
+      "model": "deepseek-flash",
+      "easy": [
+        33,
+        33
+      ],
+      "medium": [
+        54,
+        54
+      ],
+      "hard": [
+        24,
+        26
+      ]
+    }
+  ],
+  "refusal": [
+    {
+      "model": "deepseek-flash",
+      "config": "baseline",
+      "correct": 2,
+      "n": 2
+    },
+    {
+      "model": "deepseek-flash",
+      "config": "schema",
+      "correct": 2,
+      "n": 2
+    },
+    {
+      "model": "deepseek-flash",
+      "config": "full",
+      "correct": 2,
+      "n": 2
+    }
+  ],
+  "api_errors": 0,
+  "served_models": [
+    "deepseek-flash → deepseek-flash"
+  ],
+  "run_dates": [
+    "2026-11-09"
+  ]
+}
