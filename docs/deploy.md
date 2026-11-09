@@ -15,7 +15,7 @@
    - Mac：`brew install git git-lfs`。
    - 然后运行一次 `git lfs install`。
 4. **演示专用的 API key**：在 [DeepSeek 开放平台](https://platform.deepseek.com) 新建一个 key，名字写“魔搭演示”，和自己本地用的 key 分开。万一泄露，只作废这一个。账户里充少量钱就行，用完会停，不会多扣。
-   - 想零成本，也可以只用智谱的免费模型 GLM-4-Flash（[open.bigmodel.cn](https://open.bigmodel.cn) 申请 key），效果比 DeepSeek 差一些。
+   - 想零成本，也可以只用智谱的免费模型 GLM-4-Flash（[open.bigmodel.cn](https://open.bigmodel.cn) 申请 key）。不过它在评测里只答对约 63%（DeepSeek 约 97%），给 HR 演示不建议用它。
 
 ## 1. 新建创空间
 
@@ -40,8 +40,8 @@
 | 变量名 | 值 | 作用 |
 |---|---|---|
 | `DEEPSEEK_API_KEY` | 第 0 步新建的演示 key | 必填（或者填下面的智谱 key） |
-| `ZHIPUAI_API_KEY` | 智谱的 key | 可选，填了就能切换到免费的 GLM-4-Flash |
-| `ASKDATA_MODELS` | `deepseek-flash,glm-4-flash` | 只开放这两个便宜的模型，不开放 V4 Pro |
+| `ZHIPUAI_API_KEY` | 智谱的 key | 可选。演示时建议不填，见下一行 |
+| `ASKDATA_MODELS` | `deepseek-flash` | 只开放 DeepSeek Flash：便宜，评测准确率约 97%。GLM-4-Flash 免费但只有约 63%，访客选了它容易看到错答案 |
 | `ASKDATA_MAX_QUESTIONS` | `10` | 每个访客最多问 10 次 |
 | `ASKDATA_DAILY_LIMIT` | `300` | 全站每天最多回答 300 次，第二天清零 |
 
