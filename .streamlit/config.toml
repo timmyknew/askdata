@@ -1,0 +1,11 @@
+[client]
+toolbarMode = "viewer"  # 公开演示时隐藏右上角的 Deploy 等开发者按钮
+
+[theme]
+primaryColor = "#2563eb"
+
+[browser]
+gatherUsageStats = false
+
+[server]
+maxUploadSize = 20  # 上传文件最大 20 MB
