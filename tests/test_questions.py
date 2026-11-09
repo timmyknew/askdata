@@ -92,6 +92,10 @@ def test_wrong_answers_are_caught(golds):
             "AND purchase_time < '2018-09-01' GROUP BY 1) SELECT max(n) FILTER (WHERE mon = 7) AS 七月, "
             "max(n) FILTER (WHERE mon = 8) AS 八月, round(100.0 * (max(n) FILTER (WHERE mon = 8) "
             "- max(n) FILTER (WHERE mon = 7)) / max(n) FILTER (WHERE mon = 7), 1) AS 变化率 FROM m"),  # 中间数和结果都给
+    ("r03", "WITH r AS (SELECT order_id, min(score) AS score FROM reviews GROUP BY 1) SELECT r.score AS 评分, count(*) AS 订单数, "
+            "round(avg(date_diff('day', o.purchase_time, o.delivered_time)), 2) AS 平均天数 FROM r JOIN orders o USING (order_id) "
+            "WHERE o.delivered_time IS NOT NULL GROUP BY 1 ORDER BY 1"),  # 按订单去重后再分组
+    ("h09", "SELECT 96096 AS 用户数, 1796 AS 九十天内复购, 1.9 AS 占比"),  # 第二单要比首单晚（第二轮实测的结果）
 ])
 def test_equivalent_sql_written_differently(db, golds, qid, sql):
     res = db.run(sql)
@@ -107,6 +111,13 @@ def test_equivalent_sql_written_differently(db, golds, qid, sql):
     ("p05", "SELECT count(*) FROM (SELECT order_id FROM payments GROUP BY order_id HAVING count(*) > 1)"),  # 多笔支付≠多种方式
     ("t13", "SELECT strftime(purchase_time, '%Y-%m') AS 月份, count(*) AS 订单量 FROM orders "
             "WHERE purchase_time >= '2018-07-01' AND purchase_time < '2018-09-01' GROUP BY 1 ORDER BY 1"),  # 只有中间数
+    ("h03", "WITH t AS (SELECT p.category, sum(i.price) AS gmv FROM order_items i JOIN orders o USING (order_id) "
+            "JOIN products p USING (product_id) WHERE o.status NOT IN ('canceled', 'unavailable') AND p.category IS NOT NULL "
+            "GROUP BY 1) SELECT category, round(100.0 * gmv / (SELECT sum(gmv) FROM t), 1) FROM t "
+            "ORDER BY gmv DESC LIMIT 5"),  # 分母漏掉了空类目的销售额
+    ("r03", "WITH r AS (SELECT order_id, avg(score) AS score FROM reviews GROUP BY 1) SELECT r.score, "
+            "avg(date_diff('day', o.purchase_time, o.delivered_time)) FROM r JOIN orders o USING (order_id) "
+            "WHERE o.delivered_time IS NOT NULL GROUP BY 1"),  # 平均分去重，出现了 1.5 分这样的档
 ])
 def test_common_mistakes_are_wrong(db, golds, qid, sql):
     res = db.run(sql)

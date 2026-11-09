@@ -372,7 +372,12 @@ QUESTIONS: list[dict] = [
               "row_number() OVER (PARTITION BY c.customer_unique_id ORDER BY o.purchase_time) AS k "
               "FROM orders o JOIN customers c USING (customer_id)), f AS (SELECT u, max(t) FILTER (WHERE k = 1) AS t1, "
               "max(t) FILTER (WHERE k = 2) AS t2 FROM o GROUP BY u) "
-              "SELECT 100.0 * count(*) FILTER (WHERE t2 <= t1 + INTERVAL 90 DAY) / count(*) FROM f"),
+              "SELECT 100.0 * count(*) FILTER (WHERE t2 <= t1 + INTERVAL 90 DAY) / count(*) FROM f",
+         # 有 276 个用户的“第二单”和首单是同一时刻（一次下单拆成了几个订单）；只把更晚的订单算作第二单也说得通
+         alt=["WITH o AS (SELECT c.customer_unique_id AS u, o.purchase_time AS t FROM orders o "
+              "JOIN customers c USING (customer_id)), f AS (SELECT u, min(t) AS t1 FROM o GROUP BY u), "
+              "s AS (SELECT f.u, f.t1, min(o.t) FILTER (WHERE o.t > f.t1) AS t2 FROM f JOIN o USING (u) GROUP BY 1, 2) "
+              "SELECT 100.0 * count(*) FILTER (WHERE t2 <= t1 + INTERVAL 90 DAY) / count(*) FROM s"]),
     dict(id="h10", difficulty="hard", topic="商品", question="每个大区里卖出件数最多的商品类目分别是什么？",
          gold="WITH t AS (SELECT s.region, p.category, count(*) AS n FROM order_items i JOIN orders o USING (order_id) "
               "JOIN customers c USING (customer_id) JOIN states s ON s.state = c.state JOIN products p USING (product_id) "
