@@ -61,6 +61,8 @@ streamlit run app.py
 
 浏览器会自动打开 http://localhost:8501 。
 
+Windows 上如果 `activate` 报“禁止运行脚本”，可以跳过这一步，改用 `.venv\Scripts\python -m pip install -r requirements-dev.txt` 和 `.venv\Scripts\python -m streamlit run app.py`。
+
 运行测试（不需要 API key，用的是脚本化的假模型；也包括用 Streamlit 自带的 AppTest 把整个网页跑一遍）：
 
 ```bash

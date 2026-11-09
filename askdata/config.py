@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
+
+from dotenv import load_dotenv
 
 
 @dataclass(frozen=True)
@@ -31,3 +34,11 @@ MODELS: dict[str, ModelSpec] = {
     ]
 }
 DEFAULT_MODEL = "deepseek-flash"
+
+
+def load_env(path: Path) -> None:
+    """读取 .env 里的 key。旧版记事本可能把它存成 GBK 编码，按 UTF-8 读失败时再按 GBK 读一次。"""
+    try:
+        load_dotenv(path)
+    except UnicodeDecodeError:
+        load_dotenv(path, encoding="gbk")

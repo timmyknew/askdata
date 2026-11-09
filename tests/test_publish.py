@@ -10,7 +10,7 @@ spec.loader.exec_module(publish)
 def test_sync_copies_app_files_and_keeps_studio_config(tmp_path):
     (tmp_path / "README.md").write_text("---\nlicense: Apache License 2.0\n---\n#### Clone with HTTP\n", encoding="utf-8")
     (tmp_path / "askdata").mkdir()
-    (tmp_path / "askdata" / "old_module.py").write_text("# 项目里已经删掉的文件\n")
+    (tmp_path / "askdata" / "old_module.py").write_text("# 项目里已经删掉的文件\n", encoding="utf-8")
     publish.sync(tmp_path)
 
     readme = (tmp_path / "README.md").read_text(encoding="utf-8")

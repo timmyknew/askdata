@@ -18,9 +18,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from dotenv import load_dotenv
-
 from askdata.agent import Agent, AgentResult
+from askdata.config import load_env
 from askdata.db import Database
 from askdata.llm import ChatReply, ToolCall, make_model
 
@@ -112,7 +111,7 @@ def main(argv: list[str] | None = None) -> Path:
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args(argv)
 
-    load_dotenv(ROOT / ".env")
+    load_env(ROOT / ".env")
     db = Database.olist()
     golds = gold_frames(db)
     questions = [q for q in QUESTIONS if not args.ids or q["id"] in args.ids][: args.limit]

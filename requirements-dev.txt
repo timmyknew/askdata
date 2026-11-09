@@ -1,3 +1,3 @@
-# 本地开发：网页 + 测试工具
+# Local development: the app plus test tools. Keep ASCII-only (see requirements.txt).
 -r requirements.txt
 pytest>=8

@@ -7,16 +7,15 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
-from dotenv import load_dotenv
 
 from askdata.agent import Agent, AgentResult, Attempt
 from askdata.charts import choose_chart, make_figure
-from askdata.config import DEFAULT_MODEL, MODELS
+from askdata.config import DEFAULT_MODEL, MODELS, load_env
 from askdata.db import Database, clean_table_name
 from askdata.llm import MissingAPIKey, make_model
 from askdata.quota import DailyQuota
 
-load_dotenv(Path(__file__).with_name(".env"))  # 读取和 app.py 同一个文件夹里的 .env
+load_env(Path(__file__).with_name(".env"))  # 读取和 app.py 同一个文件夹里的 .env
 st.set_page_config(page_title="智能问数助手", page_icon="📊", layout="wide")
 
 # 公开 Demo 的设置，都在部署平台的环境变量里填，本地运行不用管
