@@ -75,6 +75,23 @@ def test_wrong_answers_are_caught(golds):
     ("d04", "SELECT round(avg(score) FILTER (WHERE delivered_time::date <= estimated_delivery_date), 2) AS 按时, "
             "round(avg(score) FILTER (WHERE delivered_time::date > estimated_delivery_date), 2) AS 延迟 "
             "FROM orders JOIN reviews USING (order_id) WHERE delivered_time IS NOT NULL"),
+    # 下面这些来自真实评测（DeepSeek）里被误判的写法
+    ("t04", "SELECT strftime(purchase_time, '%Y-%m') AS 月份, count(*) AS 订单量 FROM orders "
+            "GROUP BY 1 ORDER BY 2 DESC LIMIT 10"),  # 问“哪个月最多”，给了前 10 名
+    ("u02", "SELECT c.customer_unique_id AS 用户, count(*) AS 订单数 FROM orders o JOIN customers c USING (customer_id) "
+            "GROUP BY 1 ORDER BY 2 DESC LIMIT 10"),
+    ("t03", "SELECT '2018-Q' || quarter(purchase_time) AS 季度, count(*) AS 订单量 FROM orders "
+            "WHERE year(purchase_time) = 2018 GROUP BY 1 ORDER BY 1"),
+    ("d07", "SELECT round(avg(date_diff('day', estimated_delivery_date, CAST(delivered_time AS DATE))), 2) AS 平均提前天数 "
+            "FROM orders WHERE delivered_time IS NOT NULL"),  # 负数表示提前
+    ("j23", "SELECT count(*) AS 件数 FROM order_items i JOIN orders o USING (order_id) JOIN products p USING (product_id) "
+            "WHERE p.category = '玩具' AND o.status NOT IN ('canceled', 'unavailable')"),  # 只算有效订单
+    ("e26", "SELECT round(100.0 * count(*) FILTER (WHERE comment_title IS NOT NULL OR comment_message IS NOT NULL) "
+            "/ count(*), 1) AS 有文字评价占比 FROM reviews"),  # 标题或正文有一个就算
+    ("t13", "WITH m AS (SELECT month(purchase_time) AS mon, count(*) AS n FROM orders WHERE purchase_time >= '2018-07-01' "
+            "AND purchase_time < '2018-09-01' GROUP BY 1) SELECT max(n) FILTER (WHERE mon = 7) AS 七月, "
+            "max(n) FILTER (WHERE mon = 8) AS 八月, round(100.0 * (max(n) FILTER (WHERE mon = 8) "
+            "- max(n) FILTER (WHERE mon = 7)) / max(n) FILTER (WHERE mon = 7), 1) AS 变化率 FROM m"),  # 中间数和结果都给
 ])
 def test_equivalent_sql_written_differently(db, golds, qid, sql):
     res = db.run(sql)
@@ -86,7 +103,10 @@ def test_equivalent_sql_written_differently(db, golds, qid, sql):
     ("e06", "SELECT count(DISTINCT customer_id) FROM customers"),  # 用错了用户 ID
     ("j01", "SELECT p.category, sum(i.price) FROM order_items i JOIN products p USING (product_id) "
             "GROUP BY 1 ORDER BY 2 DESC LIMIT 10"),  # 没排除取消订单：金额对不上
-    ("t04", "SELECT strftime(purchase_time, '%Y-%m') FROM orders GROUP BY 1 ORDER BY count(*) DESC LIMIT 3"),  # 多返回了行
+    ("t04", "SELECT strftime(purchase_time, '%Y-%m') AS 月份, count(*) FROM orders GROUP BY 1 ORDER BY 1"),  # 答案不在第一行
+    ("p05", "SELECT count(*) FROM (SELECT order_id FROM payments GROUP BY order_id HAVING count(*) > 1)"),  # 多笔支付≠多种方式
+    ("t13", "SELECT strftime(purchase_time, '%Y-%m') AS 月份, count(*) AS 订单量 FROM orders "
+            "WHERE purchase_time >= '2018-07-01' AND purchase_time < '2018-09-01' GROUP BY 1 ORDER BY 1"),  # 只有中间数
 ])
 def test_common_mistakes_are_wrong(db, golds, qid, sql):
     res = db.run(sql)
