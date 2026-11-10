@@ -56,7 +56,9 @@ def sync(target: Path) -> list[str]:
 
 
 def git(target: Path, *args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", "-C", str(target), *args], capture_output=True, text=True)
+    # git 输出的提交说明是 UTF-8；不指定编码时，中文 Windows 会按 GBK 解码，遇到中文就报错
+    return subprocess.run(["git", "-C", str(target), *args], capture_output=True,
+                          encoding="utf-8", errors="replace")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -79,8 +81,7 @@ def main(argv: list[str] | None = None) -> int:
     if not git(target, "status", "--porcelain").stdout.strip():
         print("创空间里已经是最新的，不需要提交。")
         return 0
-    version = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--short", "HEAD"],
-                             capture_output=True, text=True).stdout.strip() or "本地版本"
+    version = git(ROOT, "rev-parse", "--short", "HEAD").stdout.strip() or "本地版本"
     done = git(target, "commit", "-m", f"同步智能问数助手 {version}")
     if done.returncode != 0:
         print(done.stdout + done.stderr)
@@ -91,7 +92,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.no_push:
         print(f"检查无误后运行：git -C {target} push")
         return 0
-    pushed = subprocess.run(["git", "-C", str(target), "push"])  # 不截获输出：要输入账号密码时能看到提示
+    # 不截获输出：要输入账号密码时能看到提示。
+    # Windows 的 Git 凭据管理器会把魔搭误认成 GitLab，登录框打不开；generic 让它直接问用户名和密码
+    pushed = subprocess.run(["git", "-c", "credential.provider=generic", "-C", str(target), "push"])
     if pushed.returncode != 0:
         print("推送失败。用户名填 oauth2，密码填魔搭的访问令牌；其他问题见 docs/deploy.md 的“常见问题”。")
         return 1

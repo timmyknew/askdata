@@ -57,7 +57,8 @@ def test_question_gets_answer_chart_and_follow_ups(app):
     ask(app, "2017 年每个月的订单量是多少？")
     assert not app.exception
     assert any(m.value == ANSWER for m in app.markdown)
-    assert len(app.get("plotly_chart")) == 1
+    assert len(app.get("vega_lite_chart")) == 1
+    assert not app.code  # SQL 标签没点开时不画代码块，省掉 1.5 MB 的高亮组件
     follow = [b.label for b in app.button if b.key and b.key.startswith("follow_")]
     assert follow == ["2018 年呢？", "哪个月增长最快？"]
     assert len(app.get("download_button")) == 1

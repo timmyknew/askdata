@@ -50,33 +50,60 @@ def choose_chart(data: pd.DataFrame | None, hint: str | None = None) -> ChartSpe
     return None
 
 
-def make_figure(data: pd.DataFrame, spec: ChartSpec):
-    """把 ChartSpec 画成 plotly 图；metric 不画图，由界面直接显示数字。"""
-    import plotly.express as px
+def make_chart(data: pd.DataFrame, spec: ChartSpec):
+    """把 ChartSpec 画成 Altair 图；metric 不画图，由界面直接显示数字。
+
+    用 Altair（Streamlit 自带的 Vega-Lite）而不是 Plotly：网页要下载的前端文件少 4.7 MB，
+    部署平台不压缩文件时，图表能快很多出来。
+    """
+    import altair as alt
+
+    if spec.kind not in ("line", "bar", "pie", "scatter"):
+        return None
+    # 列名里的点、方括号会被 Vega-Lite 当成嵌套字段，先换成安全的名字，坐标轴标题再用原名
+    cols = [spec.x, *spec.y]
+    safe = {c: f"c{i}" for i, c in enumerate(cols)}
+    frame = data[cols].rename(columns=safe)
+    x, ys = safe[spec.x], [safe[c] for c in spec.y]
+    tooltip = [alt.Tooltip(safe[c], title=str(c)) for c in cols]
 
     if spec.kind == "line":
-        frame = data.copy()
-        if not pd.api.types.is_datetime64_any_dtype(frame[spec.x]):
-            frame[spec.x] = pd.to_datetime(frame[spec.x].astype(str), errors="coerce")
-        y = spec.y[0] if len(spec.y) == 1 else spec.y  # 单条线时 y 轴标题直接用列名
-        fig = px.line(frame.sort_values(spec.x), x=spec.x, y=y, markers=len(frame) <= 40)
-        fig.update_xaxes(tickformat="%Y-%m")
+        if not pd.api.types.is_datetime64_any_dtype(frame[x]):
+            frame[x] = pd.to_datetime(frame[x].astype(str), errors="coerce")
+        frame = frame.sort_values(x)
+        x_axis = alt.X(f"{x}:T", title=str(spec.x), axis=alt.Axis(format="%Y-%m"))
+        if len(ys) == 1:
+            chart = alt.Chart(frame).mark_line(point=len(frame) <= 40).encode(
+                x=x_axis, y=alt.Y(f"{ys[0]}:Q", title=str(spec.y[0])), tooltip=tooltip)
+        else:  # 多条线：转成长表，用颜色区分
+            names = {safe[c]: str(c) for c in spec.y}
+            long = frame.melt(id_vars=[x], value_vars=ys, var_name="series", value_name="value")
+            long["series"] = long["series"].map(names)
+            chart = alt.Chart(long).mark_line(point=len(frame) <= 40).encode(
+                x=x_axis, y=alt.Y("value:Q", title=None),
+                color=alt.Color("series:N", title=None, legend=alt.Legend(orient="top")),
+                tooltip=[alt.Tooltip(f"{x}:T", title=str(spec.x), format="%Y-%m"),
+                         alt.Tooltip("series:N", title="指标"), alt.Tooltip("value:Q", title="数值")])
+        height = 380
     elif spec.kind == "bar":
-        labels = data[spec.x].astype(str)
-        horizontal = len(data) > 8 or labels.str.len().max() > 6
-        if horizontal:
-            fig = px.bar(data, x=spec.y[0], y=spec.x, orientation="h")
-            fig.update_yaxes(autorange="reversed", type="category", title_text="")  # 第一行放最上面，保持 SQL 的排序
-        else:
-            fig = px.bar(data, x=spec.x, y=spec.y[0])
-            fig.update_xaxes(type="category")
+        frame[x] = frame[x].astype(str)
+        order = frame[x].tolist()  # 保持 SQL 的排序
+        horizontal = len(frame) > 8 or frame[x].str.len().max() > 6
+        cat = alt.X if not horizontal else alt.Y
+        num = alt.Y if not horizontal else alt.X
+        enc = {("y" if horizontal else "x"): cat(f"{x}:N", sort=order, title=None if horizontal else str(spec.x),
+                                                  axis=alt.Axis(labelLimit=220, labelAngle=0)),
+               ("x" if horizontal else "y"): num(f"{ys[0]}:Q", title=str(spec.y[0]))}
+        chart = alt.Chart(frame).mark_bar().encode(**enc, tooltip=tooltip)
+        height = min(260 + 22 * len(frame), 900) if horizontal and len(frame) > 8 else 380
     elif spec.kind == "pie":
-        fig = px.pie(data, names=spec.x, values=spec.y[0], hole=0.4)
-    elif spec.kind == "scatter":
-        fig = px.scatter(data, x=spec.x, y=spec.y[0])
-    else:
-        return None
-    height = 260 + 22 * len(data) if spec.kind == "bar" and len(data) > 8 else 380
-    fig.update_layout(height=min(height, 900), margin=dict(l=8, r=8, t=24, b=8),
-                      legend_title_text="", showlegend=len(spec.y) > 1 or spec.kind == "pie")
-    return fig
+        frame[x] = frame[x].astype(str)
+        chart = alt.Chart(frame).mark_arc(innerRadius=70).encode(
+            theta=alt.Theta(f"{ys[0]}:Q"), color=alt.Color(f"{x}:N", title=str(spec.x), sort=frame[x].tolist()),
+            tooltip=tooltip)
+        height = 380
+    else:  # scatter
+        chart = alt.Chart(frame).mark_circle(size=60, opacity=0.7).encode(
+            x=alt.X(f"{x}:Q", title=str(spec.x)), y=alt.Y(f"{ys[0]}:Q", title=str(spec.y[0])), tooltip=tooltip)
+        height = 380
+    return chart.properties(height=height)

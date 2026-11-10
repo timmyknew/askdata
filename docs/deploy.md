@@ -33,9 +33,11 @@
 
 创建好后，链接是 `https://modelscope.cn/studios/<你的用户名>/askdata`。
 
+> 2026 年 11 月的新界面：创建表单里只填名称、公开、License 和封面，SDK、硬件和镜像挪到了创建后的三步页面（空间文件 → 部署设置 → 确认并部署）。建好后不要再打开“创建创空间”的表单，不然会多建一个空间。先做第 3 步把代码推上去，再回到空间页面填部署设置。
+
 ## 2. 填环境变量
 
-创空间页面 → **设置** → **环境变量**（有“密钥”类型就选密钥，别人看不到值）。
+在空间页面的 **部署设置** 里填（以后要改，在右上角 **空间管理** 里找）。`DEEPSEEK_API_KEY` 填在 **密文变量**，别人看不到值；其余几项填在 **明文变量**。**关联云资源** 选免费的 CPU，**镜像版本** 选带 `py311` 的，**OAuth 设置** 保持关闭。
 
 | 变量名 | 值 | 作用 |
 |---|---|---|
@@ -61,7 +63,11 @@ git clone https://www.modelscope.cn/studios/<你的用户名>/askdata.git ../ask
 python scripts/publish_modelscope.py ../askdata-studio
 ```
 
-推送时如果要求登录：**用户名填 `oauth2`，密码填第 0 步复制的访问令牌**。
+推送时如果要求登录：**用户名填 `oauth2`，密码填第 0 步复制的访问令牌**。要在看得见的终端窗口里运行，不然没地方输入。
+
+Windows 上登录成功后，令牌会存进“凭据管理器”，以后推送不用再输。
+
+> Windows 的 Git 凭据管理器有时会把魔搭误认成 GitLab：提示 `missing OAuth configuration ... gitlab`，登录框一闪就失败。同步脚本已经自动处理了；自己手动推送时，命令写成 `git -c credential.provider=generic push`，就会直接问用户名和密码。
 
 脚本只复制网页需要的文件（`app.py`、`askdata/`、`data/olist/`、`requirements.txt`、`.streamlit/`），并保留创空间 README 开头那段配置。以后改了代码，再运行一次这条命令就会更新。
 
@@ -102,9 +108,36 @@ python scripts/publish_modelscope.py ../askdata-studio
 **打开很慢，或者显示正在启动**
 免费空间长时间没人访问可能会休眠，第一次打开要等一会儿。集中投递简历前，自己先打开一次。
 
+**在创空间网页上上传文件失败，或者打开链接看到一段 403 的 JSON**
+这是魔搭的网关拦截了浏览器请求。不要按报错里的提示去改请求或设置，改用第 3 步的 Git 方式上传。
+
 **推送被拒绝，提示 non-fast-forward**
 创空间仓库里有你没拉下来的改动（比如在网页上改过 README）。先在 `../askdata-studio` 里运行 `git pull`，再重新运行同步脚本。不要用强制推送，平台不允许。
 
-## 备用方案
+**部署设置里“关联云资源”和“镜像版本”一直是空的，不停弹 Forbidden**
+这两个下拉框的内容是页面向魔搭请求来的，请求被拒就是空的。先确认账号已经绑定阿里云并实名（免费算力来自阿里云）；然后用无痕窗口或 Edge 打开，排除浏览器扩展；还不行就等十几分钟再试，连续操作太多可能被网关临时限制。在马来西亚实测过，最后能加载出来，所以人在境外不一定是原因。一直不行就联系魔搭客服，或者先用下面的 Streamlit Community Cloud。
 
-如果魔搭一直部署不成功，可以先在本地运行，录一段演示动图放进 README 和简历，不耽误投递。之后再换平台部署。
+## 备用方案一：Streamlit Community Cloud
+
+Streamlit 官方的免费托管，直接从 GitHub 仓库部署，不用上传文件，境外访问顺畅。缺点是中国大陆打开 `streamlit.app` 可能很慢或打不开，所以 README 里最好再放一个演示动图。
+
+1. 打开 [share.streamlit.io](https://share.streamlit.io)，用 GitHub 账号登录，按提示授权。
+2. 点 **Create app** → 从 GitHub 部署：仓库选 `timmyknew/timmyknewhere`，分支 `main`，主文件 `app.py`。
+3. **App URL** 可以改成好记的名字，比如 `askdata-<你的名字>`，链接就是 `https://askdata-<你的名字>.streamlit.app`。
+4. 点 **Advanced settings**：Python 版本选 3.11 或 3.12；**Secrets** 里粘贴下面几行（只在这里填 key）：
+
+   ```toml
+   DEEPSEEK_API_KEY = "演示专用的 key"
+   ASKDATA_MODELS = "deepseek-flash"
+   ASKDATA_MAX_QUESTIONS = "10"
+   ASKDATA_DAILY_LIMIT = "300"
+   ```
+
+   Streamlit 启动时会把这些顶层的值放进环境变量，代码不用改。
+5. 点 **Deploy**，等几分钟装完依赖就能打开。以后往 `main` 推代码，网页会自动更新。
+
+免费应用 12 小时左右没人访问会休眠，访客要点一下按钮唤醒，等半分钟。集中投递简历前自己先打开一次。
+
+## 备用方案二：只放演示动图
+
+在本地运行，录一段演示动图放进 README 和简历，不依赖任何平台，也不耽误投递。
