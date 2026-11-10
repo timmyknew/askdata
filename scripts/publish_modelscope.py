@@ -16,7 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 FILES = ["app.py", "requirements.txt", ".streamlit/config.toml"]  # 网页运行只需要这些
-DIRS = ["askdata", "data/olist"]
+DIRS = ["askdata", "data/olist", "docs/images"]  # docs/images：README 里的截图
 IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc")
 
 

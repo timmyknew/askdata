@@ -5,7 +5,8 @@
 用中文问数据，它自己写 SQL、查数据库、画图，并用一两句话给出结论。查询出错时，它会读报错、自己改 SQL 再试。
 
 > **在线体验**：[modelscope.cn/studios/timmiy/askdata](https://modelscope.cn/studios/timmiy/askdata)（魔搭创空间，免费 CPU；空间休眠后第一次打开要等一会儿）
-> 演示动图：稍后补上
+
+![在线版截图：问“各州的平均配送天数是多少？哪个州最慢？”，得到结论、柱状图和结果表](docs/images/demo.png)
 
 例如问“各州的平均配送天数是多少？哪个州最慢？”，它会：
 
