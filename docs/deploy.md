@@ -33,9 +33,11 @@
 
 创建好后，链接是 `https://modelscope.cn/studios/<你的用户名>/askdata`。
 
+> 2026 年 11 月的新界面：创建表单里只填名称、公开、License 和封面，SDK、硬件和镜像挪到了创建后的三步页面（空间文件 → 部署设置 → 确认并部署）。建好后不要再打开“创建创空间”的表单，不然会多建一个空间。先做第 3 步把代码推上去，再回到空间页面填部署设置。
+
 ## 2. 填环境变量
 
-创空间页面 → **设置** → **环境变量**（有“密钥”类型就选密钥，别人看不到值）。
+在空间页面的 **部署设置** 里填（以后要改，在右上角 **空间管理** 里找）。`DEEPSEEK_API_KEY` 填在 **密文变量**，别人看不到值；其余几项填在 **明文变量**。**关联云资源** 选免费的 CPU，**镜像版本** 选带 `py311` 的，**OAuth 设置** 保持关闭。
 
 | 变量名 | 值 | 作用 |
 |---|---|---|
@@ -61,7 +63,11 @@ git clone https://www.modelscope.cn/studios/<你的用户名>/askdata.git ../ask
 python scripts/publish_modelscope.py ../askdata-studio
 ```
 
-推送时如果要求登录：**用户名填 `oauth2`，密码填第 0 步复制的访问令牌**。
+推送时如果要求登录：**用户名填 `oauth2`，密码填第 0 步复制的访问令牌**。要在看得见的终端窗口里运行，不然没地方输入。
+
+Windows 上登录成功后，令牌会存进“凭据管理器”，以后推送不用再输。
+
+> Windows 的 Git 凭据管理器有时会把魔搭误认成 GitLab：提示 `missing OAuth configuration ... gitlab`，登录框一闪就失败。同步脚本已经自动处理了；自己手动推送时，命令写成 `git -c credential.provider=generic push`，就会直接问用户名和密码。
 
 脚本只复制网页需要的文件（`app.py`、`askdata/`、`data/olist/`、`requirements.txt`、`.streamlit/`），并保留创空间 README 开头那段配置。以后改了代码，再运行一次这条命令就会更新。
 
@@ -101,6 +107,9 @@ python scripts/publish_modelscope.py ../askdata-studio
 
 **打开很慢，或者显示正在启动**
 免费空间长时间没人访问可能会休眠，第一次打开要等一会儿。集中投递简历前，自己先打开一次。
+
+**在创空间网页上上传文件失败，或者打开链接看到一段 403 的 JSON**
+这是魔搭的网关拦截了浏览器请求。不要按报错里的提示去改请求或设置，改用第 3 步的 Git 方式上传。
 
 **推送被拒绝，提示 non-fast-forward**
 创空间仓库里有你没拉下来的改动（比如在网页上改过 README）。先在 `../askdata-studio` 里运行 `git pull`，再重新运行同步脚本。不要用强制推送，平台不允许。

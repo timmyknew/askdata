@@ -92,7 +92,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.no_push:
         print(f"检查无误后运行：git -C {target} push")
         return 0
-    pushed = subprocess.run(["git", "-C", str(target), "push"])  # 不截获输出：要输入账号密码时能看到提示
+    # 不截获输出：要输入账号密码时能看到提示。
+    # Windows 的 Git 凭据管理器会把魔搭误认成 GitLab，登录框打不开；generic 让它直接问用户名和密码
+    pushed = subprocess.run(["git", "-c", "credential.provider=generic", "-C", str(target), "push"])
     if pushed.returncode != 0:
         print("推送失败。用户名填 oauth2，密码填魔搭的访问令牌；其他问题见 docs/deploy.md 的“常见问题”。")
         return 1
