@@ -4,8 +4,8 @@
 
 用中文问数据，它自己写 SQL、查数据库、画图，并用一两句话给出结论。查询出错时，它会读报错、自己改 SQL 再试。
 
-> 在线体验：部署后补上链接
-> 演示动图：部署后补上
+> **在线体验**：[modelscope.cn/studios/timmiy/askdata](https://modelscope.cn/studios/timmiy/askdata)（魔搭创空间，免费 CPU；空间休眠后第一次打开要等一会儿）
+> 演示动图：稍后补上
 
 例如问“各州的平均配送天数是多少？哪个州最慢？”，它会：
 
@@ -74,7 +74,7 @@ pytest
 
 ## 在线部署
 
-部署到魔搭创空间（国内能直接打开、免费）的步骤见 [docs/deploy.md](docs/deploy.md)。准备好账号后，一条命令同步代码：
+已经部署在魔搭创空间：[modelscope.cn/studios/timmiy/askdata](https://modelscope.cn/studios/timmiy/askdata)。步骤见 [docs/deploy.md](docs/deploy.md)，境外访问不顺时也可以用里面写的 Streamlit Community Cloud。改了代码后，一条命令同步：
 
 ```bash
 python scripts/publish_modelscope.py ../askdata-studio

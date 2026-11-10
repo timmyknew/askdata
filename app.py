@@ -9,7 +9,7 @@ import pandas as pd
 import streamlit as st
 
 from askdata.agent import Agent, AgentResult, Attempt
-from askdata.charts import choose_chart, make_figure
+from askdata.charts import choose_chart, make_chart
 from askdata.config import DEFAULT_MODEL, MODELS, load_env
 from askdata.db import Database, clean_table_name
 from askdata.llm import MissingAPIKey, make_model
@@ -95,7 +95,7 @@ def show_result(result: AgentResult, key: str) -> None:
     if result.error and not result.ok:
         st.error(result.answer)
         with st.expander("错误详情"):
-            st.code(result.error, language=None, wrap_lines=True)
+            st.text(result.error)  # 不用 st.code：代码高亮组件要多下载 1.5 MB
     else:
         st.markdown(result.answer)
 
@@ -106,9 +106,10 @@ def show_result(result: AgentResult, key: str) -> None:
             for col, name in zip(st.columns(len(spec.y)), spec.y):
                 col.metric(f"{row[spec.x]} · {name}" if spec.x else name, fmt_number(row[name]), border=True)
         elif spec:
-            st.plotly_chart(make_figure(result.data, spec), width="stretch", key=f"chart_{key}")
+            st.altair_chart(make_chart(result.data, spec), width="stretch", key=f"chart_{key}")
 
-    tabs = st.tabs(["结果表", "SQL", "执行过程"])
+    # 点开标签才画 SQL：代码高亮组件要多下载 1.5 MB，大多数访客只看结果表
+    tabs = st.tabs(["结果表", "SQL", "执行过程"], key=f"tabs_{key}", on_change="rerun")
     with tabs[0]:
         if result.ok:
             numbers = {c: st.column_config.NumberColumn(format="localized") for c in result.data.columns
@@ -121,9 +122,10 @@ def show_result(result: AgentResult, key: str) -> None:
         else:
             st.caption("没有结果。")
     with tabs[1]:
-        st.code(result.sql or "（没有成功执行的 SQL）", language="sql", wrap_lines=True)
+        if tabs[1].open:
+            st.code(result.sql or "（没有成功执行的 SQL）", language="sql", wrap_lines=True)
     with tabs[2]:
-        for i, a in enumerate(result.attempts, 1):
+        for i, a in enumerate(result.attempts if tabs[2].open else [], 1):
             st.markdown(("✅ " if a.ok else "❌ ") + attempt_line(i, a))
             st.code(a.sql, language="sql", wrap_lines=True)
             if a.error:
