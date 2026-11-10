@@ -2,8 +2,10 @@
 
 约定
 - gold 只返回回答问题必需的列；模型多返回几列（比如顺带给出数量）不算错。
-- 行的顺序不比较；排行题比较的是“前 N 名是哪些”。
+- 行的顺序不比较；排行题比较的是“前 N 名是哪些”。模型多给几行时只看前 N 行，见 compare.py 规则 6。
 - alt 是同样合理的其他口径（比如按日期还是按时间戳判断延迟），命中任意一个就算对。
+- 用户数、件数这类计数题，数据说明的默认口径是全部订单；模型只统计有效订单（排除取消和缺货）也说得通，
+  真实评测里出现过的（u01、u03、u08、t15、j23）都加了有效订单口径的 alt。
 - 难度：easy 单表；medium 多表关联或时间处理；hard 子查询、窗口函数或多步计算。
 """
 
@@ -67,7 +69,10 @@ QUESTIONS: list[dict] = [
     dict(id="e26", difficulty="easy", topic="评价", question="有文字评价内容的评价占全部评价的百分之多少？",
          gold="SELECT 100.0 * count(*) FILTER (WHERE comment_message IS NOT NULL AND trim(comment_message) <> '') "
               "/ count(*) FROM reviews",
-         alt=["SELECT 100.0 * count(comment_message) / count(*) FROM reviews"]),
+         alt=["SELECT 100.0 * count(comment_message) / count(*) FROM reviews",
+              # 标题或正文有一个非空就算“有文字”
+              "SELECT 100.0 * count(*) FILTER (WHERE nullif(trim(comment_title), '') IS NOT NULL "
+              "OR nullif(trim(comment_message), '') IS NOT NULL) / count(*) FROM reviews"]),
     dict(id="e27", difficulty="easy", topic="卖家", question="卖家最多的城市是哪个？",
          gold="SELECT city FROM sellers GROUP BY city ORDER BY count(*) DESC LIMIT 1"),
 
@@ -78,7 +83,9 @@ QUESTIONS: list[dict] = [
     dict(id="t02", difficulty="medium", topic="趋势", question="每一年分别有多少个订单？",
          gold="SELECT year(purchase_time) AS y, count(*) FROM orders GROUP BY y"),
     dict(id="t03", difficulty="medium", topic="趋势", question="2018 年每个季度（1 到 4 季度）的订单量是多少？",
-         gold="SELECT quarter(purchase_time) AS q, count(*) FROM orders WHERE year(purchase_time) = 2018 GROUP BY q"),
+         gold="SELECT quarter(purchase_time) AS q, count(*) FROM orders WHERE year(purchase_time) = 2018 GROUP BY q",
+         alt=["SELECT date_trunc('quarter', purchase_time) AS q, count(*) FROM orders "  # 季度写成季度第一天
+              "WHERE year(purchase_time) = 2018 GROUP BY q"]),
     dict(id="t04", difficulty="medium", topic="趋势", question="订单量最多的是哪个月份？",
          gold="SELECT strftime(purchase_time, '%Y-%m') AS m FROM orders GROUP BY m ORDER BY count(*) DESC LIMIT 1"),
     dict(id="t05", difficulty="medium", topic="趋势", question="一天里哪个小时下单的人最多？",
@@ -113,7 +120,10 @@ QUESTIONS: list[dict] = [
     dict(id="t15", difficulty="hard", topic="用户", question="2017 年每个月有多少新用户（第一次下单的用户）？",
          gold="WITH f AS (SELECT c.customer_unique_id, min(o.purchase_time) AS first_time FROM orders o "
               "JOIN customers c USING (customer_id) GROUP BY 1) "
-              "SELECT strftime(first_time, '%Y-%m') AS m, count(*) FROM f WHERE year(first_time) = 2017 GROUP BY m"),
+              "SELECT strftime(first_time, '%Y-%m') AS m, count(*) FROM f WHERE year(first_time) = 2017 GROUP BY m",
+         alt=[f"WITH f AS (SELECT c.customer_unique_id, min(o.purchase_time) AS first_time FROM orders o "
+              f"JOIN customers c USING (customer_id) WHERE o.{VALID} GROUP BY 1) "
+              f"SELECT strftime(first_time, '%Y-%m') AS m, count(*) FROM f WHERE year(first_time) = 2017 GROUP BY m"]),
     dict(id="t16", difficulty="hard", topic="销售", question="2018 年 1 到 8 月，每个月的平均订单金额是多少？订单金额按商品价格合计，不含运费。",
          gold=f"WITH t AS (SELECT o.order_id, strftime(o.purchase_time, '%Y-%m') AS m, sum(i.price) AS amount "
               f"FROM order_items i JOIN orders o USING (order_id) WHERE o.purchase_time >= '2018-01-01' "
@@ -182,20 +192,26 @@ QUESTIONS: list[dict] = [
          gold="SELECT s.region FROM customers c JOIN states s USING (state) GROUP BY s.region "
               "ORDER BY count(DISTINCT c.customer_unique_id) DESC LIMIT 1"),
     dict(id="j23", difficulty="medium", topic="商品", question="“玩具”类目一共卖出了多少件？",
-         gold="SELECT count(*) FROM order_items i JOIN products p USING (product_id) WHERE p.category = '玩具'"),
+         gold="SELECT count(*) FROM order_items i JOIN products p USING (product_id) WHERE p.category = '玩具'",
+         alt=[f"SELECT count(*) FROM order_items i JOIN orders o USING (order_id) JOIN products p USING (product_id) "
+              f"WHERE p.category = '玩具' AND o.{VALID}"]),
     dict(id="j24", difficulty="medium", topic="卖家", question="圣保罗州的卖家一共有多少个？",
          gold="SELECT count(*) FROM sellers WHERE state = 'SP'"),
 
     # ---------------- 用户与复购 ----------------
     dict(id="u01", difficulty="medium", topic="用户", question="下过 2 单及以上的复购用户占全部用户的百分之多少？",
          gold="WITH u AS (SELECT c.customer_unique_id, count(*) AS n FROM orders o JOIN customers c USING (customer_id) "
-              "GROUP BY 1) SELECT 100.0 * count(*) FILTER (WHERE n >= 2) / count(*) FROM u"),
+              "GROUP BY 1) SELECT 100.0 * count(*) FILTER (WHERE n >= 2) / count(*) FROM u",
+         alt=[f"WITH u AS (SELECT c.customer_unique_id, count(*) AS n FROM orders o JOIN customers c USING (customer_id) "
+              f"WHERE o.{VALID} GROUP BY 1) SELECT 100.0 * count(*) FILTER (WHERE n >= 2) / count(*) FROM u"]),
     dict(id="u02", difficulty="medium", topic="用户", question="下单最多的那个用户一共下了几单？",
          gold="SELECT max(n) FROM (SELECT c.customer_unique_id, count(*) AS n FROM orders o "
               "JOIN customers c USING (customer_id) GROUP BY 1)"),
     dict(id="u03", difficulty="medium", topic="用户", question="有多少个用户下过 3 单及以上？",
          gold="SELECT count(*) FROM (SELECT c.customer_unique_id FROM orders o JOIN customers c USING (customer_id) "
-              "GROUP BY 1 HAVING count(*) >= 3)"),
+              "GROUP BY 1 HAVING count(*) >= 3)",
+         alt=[f"SELECT count(*) FROM (SELECT c.customer_unique_id FROM orders o JOIN customers c USING (customer_id) "
+              f"WHERE o.{VALID} GROUP BY 1 HAVING count(*) >= 3)"]),
     dict(id="u04", difficulty="medium", topic="用户", question="平均每个用户下了几单？",
          gold="SELECT count(*) / count(DISTINCT c.customer_unique_id) FROM orders o JOIN customers c USING (customer_id)"),
     dict(id="u05", difficulty="hard", topic="用户", question="累计支付金额最高的用户一共付了多少钱？",
@@ -212,7 +228,10 @@ QUESTIONS: list[dict] = [
     dict(id="u08", difficulty="hard", topic="用户", question="复购用户（2 单及以上）的平均累计支付金额，是只下过 1 单用户的几倍？",
          gold="WITH u AS (SELECT c.customer_unique_id, count(DISTINCT o.order_id) AS n, sum(p.payment_value) AS total "
               "FROM orders o JOIN customers c USING (customer_id) JOIN payments p USING (order_id) GROUP BY 1) "
-              "SELECT avg(total) FILTER (WHERE n >= 2) / avg(total) FILTER (WHERE n = 1) FROM u"),
+              "SELECT avg(total) FILTER (WHERE n >= 2) / avg(total) FILTER (WHERE n = 1) FROM u",
+         alt=[f"WITH u AS (SELECT c.customer_unique_id, count(DISTINCT o.order_id) AS n, sum(p.payment_value) AS total "
+              f"FROM orders o JOIN customers c USING (customer_id) JOIN payments p USING (order_id) WHERE o.{VALID} "
+              f"GROUP BY 1) SELECT avg(total) FILTER (WHERE n >= 2) / avg(total) FILTER (WHERE n = 1) FROM u"]),
 
     # ---------------- 物流时效 ----------------
     dict(id="d01", difficulty="medium", topic="物流", question="已送达的订单，从下单到签收平均要几天？",
@@ -243,6 +262,9 @@ QUESTIONS: list[dict] = [
     dict(id="d07", difficulty="medium", topic="物流", question="已送达的订单，平均比承诺日期提前几天送到？",
          gold="SELECT avg(date_diff('day', delivered_time, estimated_delivery_date)) FROM orders WHERE delivered_time IS NOT NULL",
          alt=["SELECT avg(date_diff('day', CAST(delivered_time AS DATE), estimated_delivery_date)) FROM orders "
+              "WHERE delivered_time IS NOT NULL",
+              # 用“送达减承诺”得到负数，文字里说“提前 X 天”，也算对
+              "SELECT avg(date_diff('day', estimated_delivery_date, delivered_time)) FROM orders "
               "WHERE delivered_time IS NOT NULL"]),
     dict(id="d08", difficulty="hard", topic="物流", question="2018 年 1 到 8 月，每个月下单的订单的延迟送达率是多少？",
          gold="SELECT strftime(purchase_time, '%Y-%m') AS m, 100.0 * count(*) FILTER "
@@ -352,7 +374,12 @@ QUESTIONS: list[dict] = [
               "row_number() OVER (PARTITION BY c.customer_unique_id ORDER BY o.purchase_time) AS k "
               "FROM orders o JOIN customers c USING (customer_id)), f AS (SELECT u, max(t) FILTER (WHERE k = 1) AS t1, "
               "max(t) FILTER (WHERE k = 2) AS t2 FROM o GROUP BY u) "
-              "SELECT 100.0 * count(*) FILTER (WHERE t2 <= t1 + INTERVAL 90 DAY) / count(*) FROM f"),
+              "SELECT 100.0 * count(*) FILTER (WHERE t2 <= t1 + INTERVAL 90 DAY) / count(*) FROM f",
+         # 有 276 个用户的“第二单”和首单是同一时刻（一次下单拆成了几个订单）；只把更晚的订单算作第二单也说得通
+         alt=["WITH o AS (SELECT c.customer_unique_id AS u, o.purchase_time AS t FROM orders o "
+              "JOIN customers c USING (customer_id)), f AS (SELECT u, min(t) AS t1 FROM o GROUP BY u), "
+              "s AS (SELECT f.u, f.t1, min(o.t) FILTER (WHERE o.t > f.t1) AS t2 FROM f JOIN o USING (u) GROUP BY 1, 2) "
+              "SELECT 100.0 * count(*) FILTER (WHERE t2 <= t1 + INTERVAL 90 DAY) / count(*) FROM s"]),
     dict(id="h10", difficulty="hard", topic="商品", question="每个大区里卖出件数最多的商品类目分别是什么？",
          gold="WITH t AS (SELECT s.region, p.category, count(*) AS n FROM order_items i JOIN orders o USING (order_id) "
               "JOIN customers c USING (customer_id) JOIN states s ON s.state = c.state JOIN products p USING (product_id) "

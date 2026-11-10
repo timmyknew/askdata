@@ -1,0 +1,248 @@
+{
+  "generated_at": "2026-11-09T23:25:19",
+  "questions": 115,
+  "models": [
+    "deepseek-flash",
+    "glm-4-flash"
+  ],
+  "configs": [
+    "baseline",
+    "schema",
+    "full"
+  ],
+  "config_labels": {
+    "baseline": "只给表名和列名，不纠错",
+    "schema": "加上中文字段说明和业务口径",
+    "full": "再加报错自动修正（线上配置）"
+  },
+  "overall": [
+    {
+      "model": "deepseek-flash",
+      "config": "baseline",
+      "label": "只给表名和列名，不纠错",
+      "correct": 99,
+      "n": 113,
+      "accuracy": 0.8761061946902655,
+      "ci": [
+        0.8027345329250918,
+        0.9247460904145407
+      ],
+      "executed": 1.0,
+      "self_corrected": 0,
+      "sql_failed": 0,
+      "avg_calls": 2.0353982300884956,
+      "avg_tokens": 2411.1061946902655,
+      "avg_seconds": 2.6563716814159295
+    },
+    {
+      "model": "deepseek-flash",
+      "config": "schema",
+      "label": "加上中文字段说明和业务口径",
+      "correct": 109,
+      "n": 113,
+      "accuracy": 0.9646017699115044,
+      "ci": [
+        0.9125024891789997,
+        0.9861500455346639
+      ],
+      "executed": 1.0,
+      "self_corrected": 0,
+      "sql_failed": 0,
+      "avg_calls": 2.0088495575221237,
+      "avg_tokens": 6584.58407079646,
+      "avg_seconds": 2.6307964601769913
+    },
+    {
+      "model": "deepseek-flash",
+      "config": "full",
+      "label": "再加报错自动修正（线上配置）",
+      "correct": 109,
+      "n": 113,
+      "accuracy": 0.9646017699115044,
+      "ci": [
+        0.9125024891789997,
+        0.9861500455346639
+      ],
+      "executed": 1.0,
+      "self_corrected": 0,
+      "sql_failed": 0,
+      "avg_calls": 2.0088495575221237,
+      "avg_tokens": 6583.017699115044,
+      "avg_seconds": 2.578849557522124
+    },
+    {
+      "model": "glm-4-flash",
+      "config": "baseline",
+      "label": "只给表名和列名，不纠错",
+      "correct": 34,
+      "n": 113,
+      "accuracy": 0.3008849557522124,
+      "ci": [
+        0.22401098815624218,
+        0.3908522112521877
+      ],
+      "executed": 0.504424778761062,
+      "self_corrected": 0,
+      "sql_failed": 46,
+      "avg_calls": 1.6371681415929205,
+      "avg_tokens": 1461.8761061946902,
+      "avg_seconds": 3.210796460176991
+    },
+    {
+      "model": "glm-4-flash",
+      "config": "schema",
+      "label": "加上中文字段说明和业务口径",
+      "correct": 54,
+      "n": 113,
+      "accuracy": 0.4778761061946903,
+      "ci": [
+        0.38802696183039537,
+        0.569180060326097
+      ],
+      "executed": 0.6283185840707964,
+      "self_corrected": 0,
+      "sql_failed": 39,
+      "avg_calls": 1.7079646017699115,
+      "avg_tokens": 5145.805309734514,
+      "avg_seconds": 4.719911504424779
+    },
+    {
+      "model": "glm-4-flash",
+      "config": "full",
+      "label": "再加报错自动修正（线上配置）",
+      "correct": 71,
+      "n": 113,
+      "accuracy": 0.6283185840707964,
+      "ci": [
+        0.5363721871689842,
+        0.711827084323361
+      ],
+      "executed": 0.8053097345132744,
+      "self_corrected": 22,
+      "sql_failed": 41,
+      "avg_calls": 2.504424778761062,
+      "avg_tokens": 7800.566371681416,
+      "avg_seconds": 7.764601769911504
+    }
+  ],
+  "ablation": [
+    {
+      "model": "deepseek-flash",
+      "from": "baseline",
+      "to": "schema",
+      "n": 113,
+      "delta": 0.08849557522123894,
+      "gained": 12,
+      "lost": 2,
+      "p": 0.012939453125
+    },
+    {
+      "model": "deepseek-flash",
+      "from": "schema",
+      "to": "full",
+      "n": 113,
+      "delta": 0.0,
+      "gained": 0,
+      "lost": 0,
+      "p": 1.0
+    },
+    {
+      "model": "glm-4-flash",
+      "from": "baseline",
+      "to": "schema",
+      "n": 113,
+      "delta": 0.17699115044247787,
+      "gained": 30,
+      "lost": 10,
+      "p": 0.0022214337732293643
+    },
+    {
+      "model": "glm-4-flash",
+      "from": "schema",
+      "to": "full",
+      "n": 113,
+      "delta": 0.1504424778761062,
+      "gained": 20,
+      "lost": 3,
+      "p": 0.00048828125
+    }
+  ],
+  "by_difficulty": [
+    {
+      "model": "deepseek-flash",
+      "easy": [
+        33,
+        33
+      ],
+      "medium": [
+        53,
+        54
+      ],
+      "hard": [
+        23,
+        26
+      ]
+    },
+    {
+      "model": "glm-4-flash",
+      "easy": [
+        28,
+        33
+      ],
+      "medium": [
+        32,
+        54
+      ],
+      "hard": [
+        11,
+        26
+      ]
+    }
+  ],
+  "refusal": [
+    {
+      "model": "deepseek-flash",
+      "config": "baseline",
+      "correct": 2,
+      "n": 2
+    },
+    {
+      "model": "deepseek-flash",
+      "config": "schema",
+      "correct": 2,
+      "n": 2
+    },
+    {
+      "model": "deepseek-flash",
+      "config": "full",
+      "correct": 2,
+      "n": 2
+    },
+    {
+      "model": "glm-4-flash",
+      "config": "baseline",
+      "correct": 2,
+      "n": 2
+    },
+    {
+      "model": "glm-4-flash",
+      "config": "schema",
+      "correct": 2,
+      "n": 2
+    },
+    {
+      "model": "glm-4-flash",
+      "config": "full",
+      "correct": 2,
+      "n": 2
+    }
+  ],
+  "api_errors": 0,
+  "served_models": [
+    "deepseek-flash → deepseek-flash",
+    "glm-4-flash → glm-4-flash-250414"
+  ],
+  "run_dates": [
+    "2026-11-09"
+  ]
+}

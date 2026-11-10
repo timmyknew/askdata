@@ -76,7 +76,12 @@ OLIST_NOTES = [
     "payments.order_id = orders.order_id；reviews.order_id = orders.order_id；"
     "customers.state 和 sellers.state 都关联 states.state。",
     "数据时间：2016-09 到 2018-10，2017-01 到 2018-08 的数据是完整的。用户说“最近”时，以 2018-08 为最后一个完整月。",
-    "销售额（GMV）默认用 order_items.price 求和，不含运费；统计有效订单时排除 status 为 canceled 和 unavailable 的订单。",
+    "销售额（GMV）默认用 order_items.price 求和，不含运费，只统计有效订单（排除 status 为 canceled 和 unavailable 的订单）；"
+    "订单量、用户数、商品件数默认统计全部订单，用户另有说明时再排除。",
+    "order_items 一个订单可能有多行（多件商品），reviews 也有少数订单有多条评价。按订单算订单数、评分、差评率时，"
+    "先在子查询里按 order_id 聚合或用 count(DISTINCT order_id)，避免关联后重复计算；"
+    "一个订单有多条评价时取 min(score)，不要取平均，否则会出现 1.5 分这样的分数。",
+    "按类目分组展示时，去掉 category 为空的那一组；但算占比时，分母仍然是全部商品（含空类目）的合计。",
     "金额单位是巴西雷亚尔（BRL）。",
     "数用户数用 customers.customer_unique_id 去重，不要用 customer_id。",
     "配送天数 = date_diff('day', purchase_time, delivered_time)，只看 delivered_time 不为空的订单。",

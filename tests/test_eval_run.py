@@ -15,7 +15,11 @@ def test_oracle_run_resume_and_report(tmp_path, capsys):
     assert "共 0 个任务" in capsys.readouterr().out  # 跑过的不再重跑
     summary = json.loads((out / "summary.json").read_text(encoding="utf-8"))
     assert summary["overall"][0]["accuracy"] == 1.0
-    assert "## 总体准确率" in (out / "report.md").read_text(encoding="utf-8")
+    report = (out / "report.md").read_text(encoding="utf-8")
+    assert "## 总体准确率" in report
+    # 标准 SQL 从不报错，所以要提醒读者：加了自动修正的那一步，差别不是自动修正带来的
+    assert all(o["sql_failed"] == 0 for o in summary["overall"])
+    assert "自动修正没有机会起作用" in report
 
 
 def test_stats():

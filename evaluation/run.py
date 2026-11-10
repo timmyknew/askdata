@@ -13,14 +13,14 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from dotenv import load_dotenv
-
 from askdata.agent import Agent, AgentResult
+from askdata.config import load_env
 from askdata.db import Database
 from askdata.llm import ChatReply, ToolCall, make_model
 
@@ -111,8 +111,10 @@ def main(argv: list[str] | None = None) -> Path:
     parser.add_argument("--out", type=Path, default=ROOT / "results" / dt.date.today().isoformat())
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args(argv)
+    if hasattr(sys.stdout, "reconfigure"):  # 中文 Windows 控制台是 GBK，打印不了的字符用 ? 代替，不要让评测中途崩掉
+        sys.stdout.reconfigure(errors="replace")
 
-    load_dotenv(ROOT / ".env")
+    load_env(ROOT / ".env")
     db = Database.olist()
     golds = gold_frames(db)
     questions = [q for q in QUESTIONS if not args.ids or q["id"] in args.ids][: args.limit]
@@ -137,7 +139,7 @@ def main(argv: list[str] | None = None) -> Path:
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
             counter["n"] += 1
             if not args.quiet:
-                mark = "API出错" if record["api_error"] else ("✓" if record["correct"] else "✗")
+                mark = "API出错" if record["api_error"] else ("对" if record["correct"] else "错")
                 print(f"[{counter['n']}/{len(tasks)}] {model_key} {config:8s} {q['id']} {mark} "
                       f"调用 {record['model_calls']} 次 {record['seconds']}s")
         return record

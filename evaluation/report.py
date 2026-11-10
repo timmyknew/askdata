@@ -71,6 +71,7 @@ def build_report(out_dir: Path, configs: dict) -> Path:
                 "accuracy": k / n, "ci": [lo, hi],
                 "executed": sum(r["executed"] for r in rows) / n,
                 "self_corrected": sum(r["self_corrected"] for r in rows),
+                "sql_failed": sum(r["failures"] > 0 for r in rows),  # SQL 至少报错一次的题数，自动修正只在这些题上起作用
                 "avg_calls": sum(r["model_calls"] for r in rows) / n,
                 "avg_tokens": sum(r["prompt_tokens"] + r["completion_tokens"] for r in rows) / n,
                 "avg_seconds": sum(r["seconds"] for r in rows) / n,
@@ -134,11 +135,12 @@ def build_report(out_dir: Path, configs: dict) -> Path:
     if api_errors:
         lines.append(f"有 {api_errors} 条记录调用 API 出错，已从准确率中排除，重跑同一条命令会补上。")
     lines += ["", "## 总体准确率", "",
-              "| 模型 | 配置 | 准确率 | 95% 置信区间 | 自动修正成功 | 平均调用次数 | 平均 tokens | 平均耗时 |",
-              "| --- | --- | ---: | --- | ---: | ---: | ---: | ---: |"]
+              "| 模型 | 配置 | 准确率 | 95% 置信区间 | SQL 报过错 | 自动修正成功 | 平均调用次数 | 平均 tokens | 平均耗时 |",
+              "| --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |"]
     for o in overall:
         lines.append(f"| {o['model']} | {o['label']} | {_pct(o['accuracy'])}（{o['correct']}/{o['n']}） | "
-                     f"{_pct(o['ci'][0])} – {_pct(o['ci'][1])} | {o['self_corrected']} 题 | {o['avg_calls']:.1f} | "
+                     f"{_pct(o['ci'][0])} – {_pct(o['ci'][1])} | {o['sql_failed']} 题 | {o['self_corrected']} 题 | "
+                     f"{o['avg_calls']:.1f} | "
                      f"{o['avg_tokens']:,.0f} | {o['avg_seconds']:.1f} 秒 |")
     if ablation:
         lines += ["", "## 每一步带来多少提升", "",
@@ -147,6 +149,12 @@ def build_report(out_dir: Path, configs: dict) -> Path:
         for a in ablation:
             lines.append(f"| {a['model']} | {configs[a['from']]['label']} → {configs[a['to']]['label']} | "
                          f"{100 * a['delta']:+.1f} 个百分点 | {a['gained']} | {a['lost']} | {a['p']:.3g} |")
+        failed = {(o["model"], o["config"]): o["sql_failed"] for o in overall}
+        for a in ablation:
+            more_retries = configs[a["to"]].get("max_failures", 1) > configs[a["from"]].get("max_failures", 1)
+            if more_retries and failed.get((a["model"], a["to"])) == 0:
+                lines.append(f"\n注意：{a['model']} 在“{configs[a['to']]['label']}”配置下没有一题的 SQL 执行出错，"
+                             "自动修正没有机会起作用，这一行的差别来自模型输出本身的随机波动。")
     if by_difficulty:
         lines += ["", f"## 按难度（{configs[best_config]['label']}）", "",
                   "| 模型 | " + " | ".join(DIFFICULTY.values()) + " |", "| --- |" + " ---: |" * len(DIFFICULTY)]

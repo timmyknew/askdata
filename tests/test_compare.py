@@ -20,8 +20,29 @@ def test_missing_column_or_wrong_rows_fail():
     gold = df(category=["A", "B"], gmv=[10.0, 20.0])
     assert not results_match(gold, df(category=["A", "B"]))
     assert not results_match(gold, df(category=["A", "C"], gmv=[10.0, 20.0]))
-    assert not results_match(gold, df(category=["A", "B", "C"], gmv=[10.0, 20.0, 1.0]))
+    assert not results_match(gold, df(category=["C", "A", "B"], gmv=[1.0, 10.0, 20.0]))  # 多出的行排在前面
     assert not results_match(gold, None)
+
+
+def test_extra_rows_after_the_answer_are_fine():
+    """问“哪个最多”，模型给了排好序的前几名：只看前 N 行。"""
+    gold = df(city=["sao paulo"])
+    assert results_match(gold, df(城市=["sao paulo", "rio de janeiro", "belo horizonte"], 用户数=[15540, 6882, 2773]))
+    assert not results_match(gold, df(城市=["rio de janeiro", "sao paulo"], 用户数=[6882, 15540]))  # 答案不在第一行
+    top3 = df(state=["RR", "AL", "MA"], score=[3.61, 3.75, 3.76])
+    assert results_match(top3, df(州=["AL", "RR", "MA", "SE", "PA"], 平均分=[3.75, 3.61, 3.76, 3.80, 3.84]))
+    assert not results_match(top3, df(州=["RR", "AL", "SE", "MA"], 平均分=[3.61, 3.75, 3.80, 3.76]))
+    single = df(n=[17])  # 只有一个数的答案，模型给了前 10 名的排行，第一行的数对就行
+    counts = [17, 9, 7, 7, 6, 6, 6, 6, 5, 5]
+    assert results_match(single, df(用户=[f"u{i}" for i in range(10)], 订单数=counts))
+    assert not results_match(single, df(用户=[f"u{i}" for i in range(10)], 订单数=counts[1:] + [17]))
+
+
+def test_long_answers_are_not_cut():
+    """标准答案超过 10 行时（比如 12 个月的明细），模型多给的行不能忽略。"""
+    months = [f"2017-{m:02d}" for m in range(1, 13)]
+    gold = df(m=months, n=list(range(12)))
+    assert not results_match(gold, df(月份=months + ["2018-01"], 订单量=list(range(13))))
 
 
 def test_counts_must_be_exact():
@@ -49,6 +70,14 @@ def test_month_formats_are_equivalent():
     assert results_match(gold, pred)
     pred2 = df(月份=pd.to_datetime(["2017-01-01", "2017-02-01"]), 订单量=[800, 1780])
     assert results_match(gold, pred2)
+
+
+def test_quarter_formats_are_equivalent():
+    gold = df(q=[1, 2, 3, 4], n=[21208, 19979, 12216, 4])
+    for labels in (["2018-Q1", "2018-Q2", "2018-Q3", "2018-Q4"], ["Q1", "Q2", "Q3", "Q4"],
+                   ["2018年第1季度", "2018年第2季度", "2018年第3季度", "2018年第4季度"], ["第一季度", "第二季度", "第三季度", "第四季度"]):
+        assert results_match(gold, df(季度=labels, 订单量=[21208, 19979, 12216, 4])), labels
+    assert not results_match(gold, df(季度=["2018-Q2", "2018-Q1", "2018-Q3", "2018-Q4"], 订单量=[21208, 19979, 12216, 4]))
 
 
 def test_year_as_text_or_number():

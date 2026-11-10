@@ -75,6 +75,29 @@ def test_wrong_answers_are_caught(golds):
     ("d04", "SELECT round(avg(score) FILTER (WHERE delivered_time::date <= estimated_delivery_date), 2) AS 按时, "
             "round(avg(score) FILTER (WHERE delivered_time::date > estimated_delivery_date), 2) AS 延迟 "
             "FROM orders JOIN reviews USING (order_id) WHERE delivered_time IS NOT NULL"),
+    # 下面这些来自真实评测（DeepSeek）里被误判的写法
+    ("t04", "SELECT strftime(purchase_time, '%Y-%m') AS 月份, count(*) AS 订单量 FROM orders "
+            "GROUP BY 1 ORDER BY 2 DESC LIMIT 10"),  # 问“哪个月最多”，给了前 10 名
+    ("u02", "SELECT c.customer_unique_id AS 用户, count(*) AS 订单数 FROM orders o JOIN customers c USING (customer_id) "
+            "GROUP BY 1 ORDER BY 2 DESC LIMIT 10"),
+    ("t03", "SELECT '2018-Q' || quarter(purchase_time) AS 季度, count(*) AS 订单量 FROM orders "
+            "WHERE year(purchase_time) = 2018 GROUP BY 1 ORDER BY 1"),
+    ("t03", "SELECT date_trunc('quarter', purchase_time) AS 季度, COUNT(DISTINCT order_id) AS 订单量 FROM orders "
+            "WHERE purchase_time >= '2018-01-01' AND purchase_time < '2019-01-01' GROUP BY 1 ORDER BY 1"),  # GLM 的写法
+    ("d07", "SELECT round(avg(date_diff('day', estimated_delivery_date, CAST(delivered_time AS DATE))), 2) AS 平均提前天数 "
+            "FROM orders WHERE delivered_time IS NOT NULL"),  # 负数表示提前
+    ("j23", "SELECT count(*) AS 件数 FROM order_items i JOIN orders o USING (order_id) JOIN products p USING (product_id) "
+            "WHERE p.category = '玩具' AND o.status NOT IN ('canceled', 'unavailable')"),  # 只算有效订单
+    ("e26", "SELECT round(100.0 * count(*) FILTER (WHERE comment_title IS NOT NULL OR comment_message IS NOT NULL) "
+            "/ count(*), 1) AS 有文字评价占比 FROM reviews"),  # 标题或正文有一个就算
+    ("t13", "WITH m AS (SELECT month(purchase_time) AS mon, count(*) AS n FROM orders WHERE purchase_time >= '2018-07-01' "
+            "AND purchase_time < '2018-09-01' GROUP BY 1) SELECT max(n) FILTER (WHERE mon = 7) AS 七月, "
+            "max(n) FILTER (WHERE mon = 8) AS 八月, round(100.0 * (max(n) FILTER (WHERE mon = 8) "
+            "- max(n) FILTER (WHERE mon = 7)) / max(n) FILTER (WHERE mon = 7), 1) AS 变化率 FROM m"),  # 中间数和结果都给
+    ("r03", "WITH r AS (SELECT order_id, min(score) AS score FROM reviews GROUP BY 1) SELECT r.score AS 评分, count(*) AS 订单数, "
+            "round(avg(date_diff('day', o.purchase_time, o.delivered_time)), 2) AS 平均天数 FROM r JOIN orders o USING (order_id) "
+            "WHERE o.delivered_time IS NOT NULL GROUP BY 1 ORDER BY 1"),  # 按订单去重后再分组
+    ("h09", "SELECT 96096 AS 用户数, 1796 AS 九十天内复购, 1.9 AS 占比"),  # 第二单要比首单晚（第二轮实测的结果）
 ])
 def test_equivalent_sql_written_differently(db, golds, qid, sql):
     res = db.run(sql)
@@ -86,7 +109,17 @@ def test_equivalent_sql_written_differently(db, golds, qid, sql):
     ("e06", "SELECT count(DISTINCT customer_id) FROM customers"),  # 用错了用户 ID
     ("j01", "SELECT p.category, sum(i.price) FROM order_items i JOIN products p USING (product_id) "
             "GROUP BY 1 ORDER BY 2 DESC LIMIT 10"),  # 没排除取消订单：金额对不上
-    ("t04", "SELECT strftime(purchase_time, '%Y-%m') FROM orders GROUP BY 1 ORDER BY count(*) DESC LIMIT 3"),  # 多返回了行
+    ("t04", "SELECT strftime(purchase_time, '%Y-%m') AS 月份, count(*) FROM orders GROUP BY 1 ORDER BY 1"),  # 答案不在第一行
+    ("p05", "SELECT count(*) FROM (SELECT order_id FROM payments GROUP BY order_id HAVING count(*) > 1)"),  # 多笔支付≠多种方式
+    ("t13", "SELECT strftime(purchase_time, '%Y-%m') AS 月份, count(*) AS 订单量 FROM orders "
+            "WHERE purchase_time >= '2018-07-01' AND purchase_time < '2018-09-01' GROUP BY 1 ORDER BY 1"),  # 只有中间数
+    ("h03", "WITH t AS (SELECT p.category, sum(i.price) AS gmv FROM order_items i JOIN orders o USING (order_id) "
+            "JOIN products p USING (product_id) WHERE o.status NOT IN ('canceled', 'unavailable') AND p.category IS NOT NULL "
+            "GROUP BY 1) SELECT category, round(100.0 * gmv / (SELECT sum(gmv) FROM t), 1) FROM t "
+            "ORDER BY gmv DESC LIMIT 5"),  # 分母漏掉了空类目的销售额
+    ("r03", "WITH r AS (SELECT order_id, avg(score) AS score FROM reviews GROUP BY 1) SELECT r.score, "
+            "avg(date_diff('day', o.purchase_time, o.delivered_time)) FROM r JOIN orders o USING (order_id) "
+            "WHERE o.delivered_time IS NOT NULL GROUP BY 1"),  # 平均分去重，出现了 1.5 分这样的档
 ])
 def test_common_mistakes_are_wrong(db, golds, qid, sql):
     res = db.run(sql)

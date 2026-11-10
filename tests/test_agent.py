@@ -130,3 +130,56 @@ def test_split_followups_handles_common_formats(reply):
 
 def test_answer_without_follow_ups_is_unchanged():
     assert split_followups("这份数据里没有年龄信息。") == ("这份数据里没有年龄信息。", [])
+
+
+# ---------- 模型没按规矩调用工具（真实评测里 GLM-4-Flash 出现过）----------
+
+@pytest.mark.parametrize("written", [
+    "run_sql WITH t AS (SELECT category, sum(amount) AS s FROM orders GROUP BY 1) SELECT * FROM t",
+    'run_sql\n"""\nSELECT category, sum(amount) FROM orders GROUP BY 1\n"""',
+    'run_sql("""SELECT category, sum(amount) FROM orders GROUP BY 1""")',
+    'run_sql({"sql": "SELECT category, sum(amount) FROM orders GROUP BY 1"})',
+    "SELECT category, sum(amount) FROM orders GROUP BY 1;",
+])
+def test_tool_call_written_as_text_is_executed(db, written):
+    model = ScriptedModel([text(written), text("图书 60，玩具 40。")])
+    result = Agent(model, db).ask("各类目销售额")
+    assert result.ok and len(result.data) == 2
+    assert result.answer == "图书 60，玩具 40。"  # 结论是第二次回复，不是那串 SQL
+    assert "执行成功" in model.calls[1][-1]["content"]
+
+
+@pytest.mark.parametrize("answer", [
+    "数据里没有退货记录，无法计算退货率。",
+    "Selecting the right metric matters: 图书卖得最好。",
+    "run_sql 这个工具这次用不上，数据里没有用户年龄。",
+])
+def test_plain_answers_are_not_mistaken_for_sql(answer):
+    assert extract_sql(answer) is None
+
+
+def test_extra_closing_paren_is_dropped(db):
+    model = ScriptedModel([
+        sql_call("SELECT category, count(*) FROM orders WHERE category <> ')' GROUP BY category)"),
+        text("两个类目各 2 笔。"),
+    ])
+    result = Agent(model, db).ask("各类目订单数")
+    assert result.ok and not result.self_corrected
+    assert result.sql.endswith("GROUP BY category")
+
+
+def test_empty_reply_gets_one_nudge(db):
+    model = ScriptedModel([text(""), sql_call("select count(*) from orders"), text("一共 4 笔订单。")])
+    result = Agent(model, db).ask("一共几笔订单？")
+    assert result.ok and result.answer == "一共 4 笔订单。"
+    assert "run_sql" in model.calls[1][-1]["content"]
+
+
+def test_repeating_a_failed_sql_is_pointed_out(db):
+    bad = "select catgory from orders"
+    model = ScriptedModel([sql_call(bad), sql_call(bad, call_id="call_2"), sql_call("select category from orders",
+                                                                                   call_id="call_3"), text("好了。")])
+    result = Agent(model, db).ask("有哪些类目？")
+    assert result.ok
+    assert "一模一样" not in model.calls[1][-1]["content"]
+    assert "一模一样" in model.calls[2][-1]["content"]

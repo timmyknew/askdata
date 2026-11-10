@@ -5,8 +5,11 @@
 2. 行数必须相同，行的顺序不管。
 3. 整数（计数）必须完全相等；小数允许 1% 的相对误差，也允许模型四舍五入到 1 位以上小数；
    比例写成百分数还是小数（12.3 和 0.123）都算对。
-4. 月份写成 '2017-01' 还是日期 2017-01-01，年份是 2017 还是 '2017'，都算同一个值。
+4. 月份写成 '2017-01' 还是日期 2017-01-01，年份是 2017 还是 '2017'，季度是 1、'Q1' 还是 '2018-Q1'，
+   都算同一个值。
 5. 标准答案只有不超过 4 个数时，模型把这几个数放在任何行列位置都算对（比如两行一列和一行两列）。
+6. 标准答案不超过 10 行、模型返回得更多时（比如问“哪个最多”，模型按排行给了前 10 名），
+   只要模型结果的前 N 行和标准答案的 N 行对得上，就算对。答案排在第二行及以后不算。
 """
 from __future__ import annotations
 
@@ -19,7 +22,10 @@ import pandas as pd
 
 _MONTH = re.compile(r"^(\d{4})-(\d{1,2})(?:-01)?(?: 00:00(?::00)?)?$")
 _NUMBER = re.compile(r"^-?\d+(\.\d+)?$")
+_QUARTER = re.compile(r"^(?:\d{4}\s*[-年]?\s*)?(?:Q|第)\s*([1-4一二三四])\s*(?:季度?)?$", re.IGNORECASE)
+_CN_DIGITS = {"一": 1, "二": 2, "三": 3, "四": 4}
 REL_TOL = 1e-2
+PREFIX_MAX_ROWS = 10  # 规则 6：标准答案不超过这么多行时，允许模型多给几行
 
 
 def _is_null(v) -> bool:
@@ -51,8 +57,11 @@ def _norm_column(values: list) -> list:
         else:
             s = str(v).strip()
             m = _MONTH.match(s)
+            q = _QUARTER.match(s)
             if m:
                 out.append(f"{int(m.group(1)):04d}-{int(m.group(2)):02d}")
+            elif q:  # 季度只保留序号，和 quarter() 返回的 1 到 4 对得上
+                out.append(float(_CN_DIGITS.get(q.group(1)) or q.group(1)))
             elif _NUMBER.match(s):
                 out.append(float(s))
             else:
@@ -107,6 +116,14 @@ def _column_match(gold_col: list, pred_col: list) -> bool:
 def results_match(gold: pd.DataFrame, pred: pd.DataFrame | None) -> bool:
     if pred is None:
         return False
+    if _same_result(gold, pred):
+        return True
+    if 0 < len(gold) <= PREFIX_MAX_ROWS and len(pred) > len(gold):
+        return _same_result(gold, pred.head(len(gold)))  # 规则 6：只看模型结果的前 N 行
+    return False
+
+
+def _same_result(gold: pd.DataFrame, pred: pd.DataFrame) -> bool:
     g_cols = [_norm_column(gold[c].tolist()) for c in gold.columns]
     p_cols = [_norm_column(pred[c].tolist()) for c in pred.columns]
     if len(gold) == len(pred) and len(g_cols) <= len(p_cols):
