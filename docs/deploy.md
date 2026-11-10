@@ -122,7 +122,7 @@ Windows 上登录成功后，令牌会存进“凭据管理器”，以后推送
 Streamlit 官方的免费托管，直接从 GitHub 仓库部署，不用上传文件，境外访问顺畅。缺点是中国大陆打开 `streamlit.app` 可能很慢或打不开，所以 README 里最好再放一个演示动图。
 
 1. 打开 [share.streamlit.io](https://share.streamlit.io)，用 GitHub 账号登录，按提示授权。
-2. 点 **Create app** → 从 GitHub 部署：仓库选 `timmyknew/timmyknewhere`，分支 `main`，主文件 `app.py`。
+2. 点 **Create app** → 从 GitHub 部署：仓库选 `timmyknew/askdata`，分支 `main`，主文件 `app.py`。
 3. **App URL** 可以改成好记的名字，比如 `askdata-<你的名字>`，链接就是 `https://askdata-<你的名字>.streamlit.app`。
 4. 点 **Advanced settings**：Python 版本选 3.11 或 3.12；**Secrets** 里粘贴下面几行（只在这里填 key）：
 

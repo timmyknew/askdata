@@ -49,7 +49,7 @@ def sync(target: Path) -> list[str]:
     readme = target / "README.md"
     header = front_matter(readme.read_text(encoding="utf-8")) if readme.exists() else ""
     body = (ROOT / "README.md").read_text(encoding="utf-8")
-    note = "\n> 源代码和完整说明见 GitHub：https://github.com/timmyknew/timmyknewhere\n"
+    note = "\n> 源代码和完整说明见 GitHub：https://github.com/timmyknew/askdata\n"
     readme.write_text((header + "\n" if header else "") + body.rstrip() + "\n" + note, encoding="utf-8")
     copied.append("README.md")
     return copied
