@@ -72,3 +72,20 @@ def test_pie_and_scatter_render():
     assert _spec(pie, "pie")[1]["mark"]["type"] == "arc"
     points = pd.DataFrame({"价格": [1.0, 2, 3, 4, 5], "运费": [2.0, 3, 1, 5, 4]})
     assert _spec(points, "scatter")[1]["mark"]["type"] == "circle"
+
+
+def test_bar_uses_the_column_the_result_is_sorted_by():
+    # 线上实测：模型返回 [州, 州名, 已送达订单数, 平均配送天数]，按平均天数排序，原来误画成了订单数
+    data = pd.DataFrame({"州": ["RR", "AP", "AM", "SP"], "州名": ["罗赖马", "阿马帕", "亚马孙", "圣保罗"],
+                         "已送达订单数": [41, 67, 145, 40494], "平均配送天数": [29.3, 27.2, 26.4, 8.7]})
+    spec = choose_chart(data)
+    assert (spec.kind, spec.x, spec.y) == ("bar", "州", ["平均配送天数"])
+
+
+def test_bar_prefers_the_last_number_and_skips_rank_columns():
+    unsorted = pd.DataFrame({"类目": ["a", "b", "c"], "订单数": [5, 9, 7], "销售额": [3.0, 1.0, 2.0]})
+    assert choose_chart(unsorted).y == ["销售额"]  # 都没排序：取最后一个数值列
+    ranked = pd.DataFrame({"类目": ["a", "b", "c"], "销售额": [9.0, 5.0, 2.0], "排名": [1, 2, 3]})
+    assert choose_chart(ranked).y == ["销售额"]  # 排名列不画
+    pie = pd.DataFrame({"支付方式": ["信用卡", "票据", "代金券"], "订单数": [76795, 19784, 3866], "占比": [74.0, 19.0, 3.7]})
+    assert choose_chart(pie, hint="pie").y == ["占比"]

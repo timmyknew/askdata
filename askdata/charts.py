@@ -25,6 +25,25 @@ def _is_time(series: pd.Series) -> bool:
     return series.dropna().astype(str).map(lambda v: bool(_TIME_TEXT.match(v))).all()
 
 
+def _main_measure(data: pd.DataFrame, numeric: list[str]) -> str:
+    """柱状图和饼图画哪一列数字。
+
+    结果里常有好几列数字（比如“已送达订单数”和“平均配送天数”）。模型一般按问题要的那个指标排序，
+    所以优先选结果按它排好序的列；几列都排好序时取最后一列，都没排序时取最后一个数值列
+    （指标通常写在 SELECT 的最后）。排名列（1、2、3……）不算。
+    """
+    def is_rank(s: pd.Series) -> bool:
+        return s.tolist() == list(range(1, len(s) + 1))
+
+    def sorted_by(c: str) -> bool:
+        s = data[c].dropna()
+        return s.nunique() > 1 and (s.is_monotonic_increasing or s.is_monotonic_decreasing) and not is_rank(s)
+
+    candidates = [c for c in numeric if not is_rank(data[c].dropna())] or numeric
+    ordered = [c for c in candidates if sorted_by(c)]
+    return (ordered or candidates)[-1]
+
+
 def choose_chart(data: pd.DataFrame | None, hint: str | None = None) -> ChartSpec | None:
     """返回 None 表示只显示表格。hint 是模型建议的图表类型，不合适时忽略。"""
     if data is None or data.empty or hint == "table":
@@ -38,13 +57,13 @@ def choose_chart(data: pd.DataFrame | None, hint: str | None = None) -> ChartSpe
     if rows == 1 and numeric and len(labels) <= 1 and len(numeric) <= 4:  # 一行几个数：直接显示数字
         return ChartSpec("metric", x=labels[0] if labels else None, y=numeric)
     if hint == "pie" and labels and numeric and 2 <= rows <= 10:
-        return ChartSpec("pie", x=labels[0], y=numeric[:1])
+        return ChartSpec("pie", x=labels[0], y=[_main_measure(data, numeric)])
     if hint == "scatter" and len(numeric) >= 2:
         return ChartSpec("scatter", x=numeric[0], y=[numeric[1]])
     if times and numeric and rows >= 2:
         return ChartSpec("line", x=times[0], y=numeric[:3])
     if labels and numeric and 2 <= rows <= 50:
-        return ChartSpec("bar", x=labels[0], y=numeric[:1])
+        return ChartSpec("bar", x=labels[0], y=[_main_measure(data, numeric)])
     if len(numeric) >= 2 and rows >= 5:
         return ChartSpec("scatter", x=numeric[0], y=[numeric[1]])
     return None
