@@ -17,6 +17,7 @@ def test_sync_copies_app_files_and_keeps_studio_config(tmp_path):
     assert readme.startswith("---\nlicense: Apache License 2.0\n---\n")
     assert "# 智能问数助手" in readme and "Clone with HTTP" not in readme
     assert (tmp_path / "app.py").exists() and (tmp_path / "data" / "olist" / "orders.parquet").exists()
+    assert (tmp_path / "docs" / "images" / "demo.png").exists()  # README 里的截图在创空间也能显示
     assert not (tmp_path / "askdata" / "old_module.py").exists()
     assert not list(tmp_path.rglob("__pycache__"))
     assert not (tmp_path / "tests").exists()  # 测试和评测代码不上传

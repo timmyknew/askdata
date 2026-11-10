@@ -69,7 +69,7 @@ Windows 上登录成功后，令牌会存进“凭据管理器”，以后推送
 
 > Windows 的 Git 凭据管理器有时会把魔搭误认成 GitLab：提示 `missing OAuth configuration ... gitlab`，登录框一闪就失败。同步脚本已经自动处理了；自己手动推送时，命令写成 `git -c credential.provider=generic push`，就会直接问用户名和密码。
 
-脚本只复制网页需要的文件（`app.py`、`askdata/`、`data/olist/`、`requirements.txt`、`.streamlit/`），并保留创空间 README 开头那段配置。以后改了代码，再运行一次这条命令就会更新。
+脚本只复制网页需要的文件（`app.py`、`askdata/`、`data/olist/`、`requirements.txt`、`.streamlit/`，以及 README 用到的 `docs/images/`），并保留创空间 README 开头那段配置。以后改了代码，再运行一次这条命令就会更新。
 
 ## 4. 启动和检查
 
