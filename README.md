@@ -1,6 +1,6 @@
 # 智能问数助手
 
-[![tests](https://github.com/timmyknew/timmyknewhere/actions/workflows/tests.yml/badge.svg)](https://github.com/timmyknew/timmyknewhere/actions/workflows/tests.yml)
+[![tests](https://github.com/timmyknew/askdata/actions/workflows/tests.yml/badge.svg)](https://github.com/timmyknew/askdata/actions/workflows/tests.yml)
 
 用中文问数据，它自己写 SQL、查数据库、画图，并用一两句话给出结论。查询出错时，它会读报错、自己改 SQL 再试。
 
@@ -51,8 +51,8 @@ flowchart LR
 需要 Python 3.10 以上，以及 DeepSeek 或智谱任意一家的 API key。
 
 ```bash
-git clone https://github.com/timmyknew/timmyknewhere.git
-cd timmyknewhere
+git clone https://github.com/timmyknew/askdata.git
+cd askdata
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt   # 网页 + 测试工具
