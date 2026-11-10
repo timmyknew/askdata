@@ -114,6 +114,30 @@ Windows 上登录成功后，令牌会存进“凭据管理器”，以后推送
 **推送被拒绝，提示 non-fast-forward**
 创空间仓库里有你没拉下来的改动（比如在网页上改过 README）。先在 `../askdata-studio` 里运行 `git pull`，再重新运行同步脚本。不要用强制推送，平台不允许。
 
-## 备用方案
+**部署设置里“关联云资源”和“镜像版本”一直是空的，不停弹 Forbidden**
+魔搭的免费算力来自阿里云国内资源，要求账号绑定阿里云并实名。已经绑定还是这样，先用无痕窗口或 Edge 试一次，排除浏览器扩展；还不行，多半是账号或地区限制（比如人在境外），换浏览器解决不了，可以联系魔搭客服，或者先用下面的 Streamlit Community Cloud。
 
-如果魔搭一直部署不成功，可以先在本地运行，录一段演示动图放进 README 和简历，不耽误投递。之后再换平台部署。
+## 备用方案一：Streamlit Community Cloud
+
+Streamlit 官方的免费托管，直接从 GitHub 仓库部署，不用上传文件，境外访问顺畅。缺点是中国大陆打开 `streamlit.app` 可能很慢或打不开，所以 README 里最好再放一个演示动图。
+
+1. 打开 [share.streamlit.io](https://share.streamlit.io)，用 GitHub 账号登录，按提示授权。
+2. 点 **Create app** → 从 GitHub 部署：仓库选 `timmyknew/timmyknewhere`，分支 `main`，主文件 `app.py`。
+3. **App URL** 可以改成好记的名字，比如 `askdata-<你的名字>`，链接就是 `https://askdata-<你的名字>.streamlit.app`。
+4. 点 **Advanced settings**：Python 版本选 3.11 或 3.12；**Secrets** 里粘贴下面几行（只在这里填 key）：
+
+   ```toml
+   DEEPSEEK_API_KEY = "演示专用的 key"
+   ASKDATA_MODELS = "deepseek-flash"
+   ASKDATA_MAX_QUESTIONS = "10"
+   ASKDATA_DAILY_LIMIT = "300"
+   ```
+
+   Streamlit 启动时会把这些顶层的值放进环境变量，代码不用改。
+5. 点 **Deploy**，等几分钟装完依赖就能打开。以后往 `main` 推代码，网页会自动更新。
+
+免费应用 12 小时左右没人访问会休眠，访客要点一下按钮唤醒，等半分钟。集中投递简历前自己先打开一次。
+
+## 备用方案二：只放演示动图
+
+在本地运行，录一段演示动图放进 README 和简历，不依赖任何平台，也不耽误投递。
