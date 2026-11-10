@@ -26,3 +26,29 @@ def test_front_matter_needs_closing_line():
     assert publish.front_matter("# 标题\n") == ""
     assert publish.front_matter("---\na: 1\n") == ""
     assert publish.front_matter("---\na: 1\n---\n正文") == "---\na: 1\n---\n"
+
+
+def test_git_output_with_chinese_is_read_on_a_non_utf8_locale(tmp_path):
+    # 中文 Windows 默认按 GBK 解码子进程输出，git 输出的却是 UTF-8 的中文提交说明。
+    # 这里用 C 语言环境（ASCII）模拟“系统编码不是 UTF-8”，在任何系统上都能复现。
+    import os
+    import subprocess
+    import sys
+
+    repo = tmp_path / "studio"
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@example.com",
+                    "commit", "-q", "--allow-empty", "-m", "同步智能问数助手"], check=True)
+    code = (
+        "import importlib.util, sys\n"
+        "spec = importlib.util.spec_from_file_location('publish', sys.argv[1])\n"
+        "m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)\n"
+        "from pathlib import Path\n"
+        "print(ascii(m.git(Path(sys.argv[2]), 'log', '-1', '--format=%s').stdout.strip()))\n"
+    )
+    env = {**os.environ, "PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0", "LC_ALL": "C", "LANG": "C"}
+    env.pop("PYTHONIOENCODING", None)
+    done = subprocess.run([sys.executable, "-c", code, str(ROOT / "scripts" / "publish_modelscope.py"), str(repo)],
+                          capture_output=True, env=env)
+    assert done.returncode == 0, done.stderr.decode("utf-8", "replace")
+    assert done.stdout.decode("ascii").strip() == ascii("同步智能问数助手")

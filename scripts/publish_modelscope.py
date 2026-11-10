@@ -56,7 +56,9 @@ def sync(target: Path) -> list[str]:
 
 
 def git(target: Path, *args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", "-C", str(target), *args], capture_output=True, text=True)
+    # git 输出的提交说明是 UTF-8；不指定编码时，中文 Windows 会按 GBK 解码，遇到中文就报错
+    return subprocess.run(["git", "-C", str(target), *args], capture_output=True,
+                          encoding="utf-8", errors="replace")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -79,8 +81,7 @@ def main(argv: list[str] | None = None) -> int:
     if not git(target, "status", "--porcelain").stdout.strip():
         print("创空间里已经是最新的，不需要提交。")
         return 0
-    version = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--short", "HEAD"],
-                             capture_output=True, text=True).stdout.strip() or "本地版本"
+    version = git(ROOT, "rev-parse", "--short", "HEAD").stdout.strip() or "本地版本"
     done = git(target, "commit", "-m", f"同步智能问数助手 {version}")
     if done.returncode != 0:
         print(done.stdout + done.stderr)
